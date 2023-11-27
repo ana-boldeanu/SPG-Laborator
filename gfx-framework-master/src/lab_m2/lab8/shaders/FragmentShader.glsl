@@ -40,6 +40,39 @@ vec4 blur(int blurRadius)
     return sum / samples;
 }
 
+vec4 median(int radius)
+{
+    vec2 texelSize = 1.0f / screenSize;
+    vec4 neighbours[100];
+
+    for (int i = -radius/2; i <= radius/2; ++i)
+    {
+        for (int j = -radius/2; j <= radius/2; ++j)
+        {
+            neighbours[radius * (i + radius/2) + (j + radius/2)] = texture(textureImage, textureCoord + vec2(i, j) * texelSize);
+        }   
+    }
+
+    // Bubble-sort the array to get the median value
+    for (int i = 0; i < radius * radius - 1; i++)
+    {
+        for (int j = i + 1; j < radius * radius; j++) 
+        {
+            float intensity_1 = 0.21 * neighbours[i].r + 0.71 * neighbours[i].g + 0.07 * neighbours[i].b;
+            float intensity_2 = 0.21 * neighbours[j].r + 0.71 * neighbours[j].g + 0.07 * neighbours[j].b;
+            
+            if (intensity_1 < intensity_2)
+            {
+                vec4 temp_tex = neighbours[i];
+                neighbours[i] = neighbours[j];
+                neighbours[j] = temp_tex;
+           }
+        }
+    }
+
+    return neighbours[radius * radius / 2];
+}
+
 
 void main()
 {
@@ -54,6 +87,12 @@ void main()
         case 2:
         {
             out_color = blur(3);
+            break;
+        }
+
+        case 3:
+        {
+            out_color = median(7);
             break;
         }
 

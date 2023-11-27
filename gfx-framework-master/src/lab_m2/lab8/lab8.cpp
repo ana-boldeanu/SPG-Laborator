@@ -213,7 +213,7 @@ void Lab8::OnKeyPress(int key, int mods)
         cout << "Processing on GPU: " << (gpuProcessing ? "true" : "false") << endl;
     }
 
-    if (key - GLFW_KEY_0 >= 0 && key < GLFW_KEY_3)
+    if (key - GLFW_KEY_0 >= 0 && key <= GLFW_KEY_3)
     {
         outputMode = key - GLFW_KEY_0;
 
