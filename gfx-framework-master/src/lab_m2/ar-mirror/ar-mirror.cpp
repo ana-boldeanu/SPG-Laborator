@@ -1,4 +1,4 @@
-#include "lab_m2/lab6/lab6.h"
+#include "lab_m2/ar-mirror/ar-mirror.h"
 
 #include <vector>
 #include <iostream>
@@ -15,7 +15,7 @@ using namespace m2;
  */
 
 
-Lab6::Lab6()
+AR_Mirror::AR_Mirror()
 {
     framebuffer_object = 0;
     color_texture = 0;
@@ -27,23 +27,23 @@ Lab6::Lab6()
 }
 
 
-Lab6::~Lab6()
+AR_Mirror::~AR_Mirror()
 {
 }
 
 
-void Lab6::Init()
+void AR_Mirror::Init()
 {
     auto camera = GetSceneCamera();
     camera->SetPositionAndRotation(glm::vec3(0, -1, 4), glm::quat(glm::vec3(RADIANS(10), 0, 0)));
     camera->Update();
 
     std::string texturePath = PATH_JOIN(window->props.selfDir, RESOURCE_PATH::TEXTURES, "cube");
-    std::string shaderPath = PATH_JOIN(window->props.selfDir, SOURCE_PATH::M2, "lab6", "shaders");
+    std::string shaderPath = PATH_JOIN(window->props.selfDir, SOURCE_PATH::M2, "ar-mirror", "shaders");
 
     {
-        Mesh* mesh = new Mesh("bunny");
-        mesh->LoadMesh(PATH_JOIN(window->props.selfDir, RESOURCE_PATH::MODELS, "animals"), "bunny.obj");
+        Mesh* mesh = new Mesh("mirror");
+        mesh->LoadMesh(PATH_JOIN(window->props.selfDir, RESOURCE_PATH::MODELS, "primitives"), "plane50.obj");
         mesh->UseMaterials(false);
         meshes[mesh->GetMeshID()] = mesh;
     }
@@ -106,12 +106,12 @@ void Lab6::Init()
 }
 
 
-void Lab6::FrameStart()
+void AR_Mirror::FrameStart()
 {
 }
 
 
-void Lab6::Update(float deltaTimeSeconds)
+void AR_Mirror::Update(float deltaTimeSeconds)
 {
     angle += 0.5f * deltaTimeSeconds;
 
@@ -241,7 +241,9 @@ void Lab6::Update(float deltaTimeSeconds)
         Shader *shader = shaders["CubeMap"];
         shader->Use();
 
-        glm::mat4 modelMatrix = glm::scale(glm::mat4(1), glm::vec3(0.1f));
+        glm::mat4 modelMatrix = glm::mat4(1);
+        modelMatrix *= glm::rotate(glm::mat4(1), glm::radians(90.0f), glm::vec3(1, 0, 0));
+        modelMatrix *= glm::scale(glm::mat4(1), glm::vec3(0.1f));
 
         glUniformMatrix4fv(shader->loc_model_matrix, 1, GL_FALSE, glm::value_ptr(modelMatrix));
         glUniformMatrix4fv(shader->loc_view_matrix, 1, GL_FALSE, glm::value_ptr(camera->GetViewMatrix()));
@@ -269,18 +271,18 @@ void Lab6::Update(float deltaTimeSeconds)
         
         glUniform1i(shader->GetUniformLocation("type"), type);
 
-        meshes["bunny"]->Render();
+        meshes["mirror"]->Render();
     }
 }
 
 
-void Lab6::FrameEnd()
+void AR_Mirror::FrameEnd()
 {
     // DrawCoordinateSystem();
 }
 
 
-unsigned int Lab6::UploadCubeMapTexture(const std::string &pos_x, const std::string &pos_y, const std::string &pos_z, const std::string& neg_x, const std::string& neg_y, const std::string& neg_z)
+unsigned int AR_Mirror::UploadCubeMapTexture(const std::string &pos_x, const std::string &pos_y, const std::string &pos_z, const std::string& neg_x, const std::string& neg_y, const std::string& neg_z)
 {
     int width, height, chn;
 
@@ -340,7 +342,7 @@ unsigned int Lab6::UploadCubeMapTexture(const std::string &pos_x, const std::str
     return textureID;
 }
 
-void Lab6::CreateFramebuffer(int width, int height)
+void AR_Mirror::CreateFramebuffer(int width, int height)
 {
     // TODO(student): In this method, use the attributes
     // 'framebuffer_object', 'color_texture'
@@ -388,7 +390,6 @@ void Lab6::CreateFramebuffer(int width, int height)
         std::vector<GLenum> draw_textures;
         draw_textures.push_back(GL_COLOR_ATTACHMENT0);
         glDrawBuffers((GLsizei)draw_textures.size(), &draw_textures[0]);
-
     }
 
     // TODO(student): Generate and bind the depth texture
@@ -419,13 +420,13 @@ void Lab6::CreateFramebuffer(int width, int height)
  */
 
 
-void Lab6::OnInputUpdate(float deltaTime, int mods)
+void AR_Mirror::OnInputUpdate(float deltaTime, int mods)
 {
     // Treat continuous update based on input
 }
 
 
-void Lab6::OnKeyPress(int key, int mods)
+void AR_Mirror::OnKeyPress(int key, int mods)
 {
     // Add key press event
     if (key == GLFW_KEY_1)
@@ -440,37 +441,37 @@ void Lab6::OnKeyPress(int key, int mods)
 }
 
 
-void Lab6::OnKeyRelease(int key, int mods)
+void AR_Mirror::OnKeyRelease(int key, int mods)
 {
     // Add key release event
 }
 
 
-void Lab6::OnMouseMove(int mouseX, int mouseY, int deltaX, int deltaY)
+void AR_Mirror::OnMouseMove(int mouseX, int mouseY, int deltaX, int deltaY)
 {
     // Add mouse move event
 }
 
 
-void Lab6::OnMouseBtnPress(int mouseX, int mouseY, int button, int mods)
+void AR_Mirror::OnMouseBtnPress(int mouseX, int mouseY, int button, int mods)
 {
     // Add mouse button press event
 }
 
 
-void Lab6::OnMouseBtnRelease(int mouseX, int mouseY, int button, int mods)
+void AR_Mirror::OnMouseBtnRelease(int mouseX, int mouseY, int button, int mods)
 {
     // Add mouse button release event
 }
 
 
-void Lab6::OnMouseScroll(int mouseX, int mouseY, int offsetX, int offsetY)
+void AR_Mirror::OnMouseScroll(int mouseX, int mouseY, int offsetX, int offsetY)
 {
     // Treat mouse scroll event
 }
 
 
-void Lab6::OnWindowResize(int width, int height)
+void AR_Mirror::OnWindowResize(int width, int height)
 {
     // Treat window resize event
 }
