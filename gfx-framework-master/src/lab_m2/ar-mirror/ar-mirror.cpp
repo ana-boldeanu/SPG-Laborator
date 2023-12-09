@@ -9,21 +9,15 @@ using namespace std;
 using namespace m2;
 
 
-/*
- *  To find out more about `FrameStart`, `Update`, `FrameEnd`
- *  and the order in which they are called, see `world.cpp`.
- */
-
-
 AR_Mirror::AR_Mirror()
 {
     framebuffer_object = 0;
     color_texture = 0;
     depth_texture = 0;
 
-    angle = 0;
+    archer_angle = 0;
 
-    type = 0;
+    draw_outlines = 0;
 }
 
 
@@ -90,6 +84,16 @@ void AR_Mirror::Init()
         shaders[shader->GetName()] = shader;
     }
 
+    // Create a shader program for creating a CUBEMAP
+    {
+        Shader* shader = new Shader("Framebuffer_Outlines");
+        shader->AddShader(PATH_JOIN(shaderPath, "Framebuffer.VS.glsl"), GL_VERTEX_SHADER);
+        shader->AddShader(PATH_JOIN(shaderPath, "Framebuffer.FS.glsl"), GL_FRAGMENT_SHADER);
+        shader->AddShader(PATH_JOIN(shaderPath, "Framebuffer_Outlines.GS.glsl"), GL_GEOMETRY_SHADER);
+        shader->CreateAndLink();
+        shaders[shader->GetName()] = shader;
+    }
+
     cubeMapTextureID = UploadCubeMapTexture(
         PATH_JOIN(texturePath, "pos_x.png"),
         PATH_JOIN(texturePath, "pos_y.png"),
@@ -113,7 +117,7 @@ void AR_Mirror::FrameStart()
 
 void AR_Mirror::Update(float deltaTimeSeconds)
 {
-    angle += 0.5f * deltaTimeSeconds;
+    archer_angle += 0.5f * deltaTimeSeconds;
 
     auto camera = GetSceneCamera();
 
@@ -121,14 +125,15 @@ void AR_Mirror::Update(float deltaTimeSeconds)
     if (framebuffer_object)
     {
         glBindFramebuffer(GL_FRAMEBUFFER, framebuffer_object);
+
         // Set the clear color for the color buffer
         glClearColor(0,0,0, 1);
+
         // Clears the color buffer (using the previously set color) and depth buffer
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
         glViewport(0, 0, 1024, 1024);
 
-        Shader *shader = shaders["Framebuffer"];
+        Shader *shader = draw_outlines == 1 ? shaders["Framebuffer_Outlines"] : shaders["Framebuffer"];
         shader->Use();
 
         glm::mat4 projection = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 100.0f);
@@ -144,15 +149,21 @@ void AR_Mirror::Update(float deltaTimeSeconds)
             glBindTexture(GL_TEXTURE_CUBE_MAP, cubeMapTextureID);
             glUniform1i(glGetUniformLocation(shader->program, "texture_cubemap"), 1);
 
-            glUniform1i(glGetUniformLocation(shader->program, "cube_draw"), 1);
+            glUniform1i(glGetUniformLocation(shader->program, "draw_cubemap"), 1);
 
             meshes["cube"]->Render();
         }
 
+        auto camera_forward = camera->m_transform->GetLocalOZVector();
+        int loc_camera_forward = shader->GetUniformLocation("camera_forward");
+        glUniform3f(loc_camera_forward, camera_forward.x, camera_forward.y, camera_forward.z);
+
+        glUniform1i(shader->GetUniformLocation("draw_outlines"), draw_outlines);
+
         for (int i = 0; i < 5; i++)
         {
             glm::mat4 modelMatrix = glm::mat4(1);
-            modelMatrix *= glm::rotate(glm::mat4(1), angle + i * glm::radians(360.0f) / 5, glm::vec3(0, 1, 0));
+            modelMatrix *= glm::rotate(glm::mat4(1), archer_angle + i * glm::radians(360.0f) / 5, glm::vec3(0, 1, 0));
             modelMatrix *= glm::translate(glm::mat4(1), glm::vec3(3, -1, 0));
             modelMatrix *= glm::rotate(glm::mat4(1), glm::radians(-90.0f), glm::vec3(0, 1, 0));
             modelMatrix *= glm::scale(glm::mat4(1), glm::vec3(0.01f));
@@ -162,12 +173,12 @@ void AR_Mirror::Update(float deltaTimeSeconds)
 
             glm::mat4 cubeView[6] =
             {
-                glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(0.0f,-1.0f, 0.0f)), // +X
+                glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(0.0f,-1.0f, 0.0f)),  // +X
                 glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(-1.0f, 0.0f, 0.0f), glm::vec3(0.0f,-1.0f, 0.0f)), // -X
-                glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f)), // +Y
-                glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f,-1.0f, 0.0f), glm::vec3(0.0f, 0.0f,-1.0f)), // -Y
-                glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(0.0f,-1.0f, 0.0f)), // +Z
-                glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f,-1.0f), glm::vec3(0.0f,-1.0f, 0.0f)), // -Z
+                glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f)),  // +Y
+                glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, -1.0f, 0.0f), glm::vec3(0.0f, 0.0f,-1.0f)), // -Y
+                glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(0.0f,-1.0f, 0.0f)),  // +Z
+                glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f,-1.0f, 0.0f)), // -Z
             };
 
             glUniformMatrix4fv(glGetUniformLocation(shader->GetProgramID(), "viewMatrices"), 6, GL_FALSE, glm::value_ptr(cubeView[0]));
@@ -177,7 +188,7 @@ void AR_Mirror::Update(float deltaTimeSeconds)
             glBindTexture(GL_TEXTURE_2D, TextureManager::GetTexture("Akai_E_Espiritu.fbm\\akai_diffuse.png")->GetTextureID());
             glUniform1i(glGetUniformLocation(shader->program, "texture_1"), 0);
 
-            glUniform1i(glGetUniformLocation(shader->program, "cube_draw"), 0);
+            glUniform1i(glGetUniformLocation(shader->program, "draw_cubemap"), 0);
 
             meshes["archer"]->Render();
         }
@@ -185,13 +196,12 @@ void AR_Mirror::Update(float deltaTimeSeconds)
         glBindTexture(GL_TEXTURE_CUBE_MAP, color_texture);
         glGenerateMipmap(GL_TEXTURE_CUBE_MAP);
 
-        //reset drawing to screen
+        // Reset drawing to screen
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
     }
 
     // Clear the screen
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
     glViewport(0, 0, window->GetResolution().x, window->GetResolution().y);
 
     // Draw the cubemap
@@ -213,14 +223,14 @@ void AR_Mirror::Update(float deltaTimeSeconds)
         meshes["cube"]->Render();
     }
 
-    // Draw five archers around the mesh
+    // Draw five archers around the mirror
     for (int i = 0; i < 5; i++)
     {
         Shader* shader = shaders["Simple"];
         shader->Use();
 
         glm::mat4 modelMatrix = glm::mat4(1);
-        modelMatrix *= glm::rotate(glm::mat4(1), angle + i * glm::radians(360.0f) / 5, glm::vec3(0, 1, 0));
+        modelMatrix *= glm::rotate(glm::mat4(1), archer_angle + i * glm::radians(360.0f) / 5, glm::vec3(0, 1, 0));
         modelMatrix *= glm::translate(glm::mat4(1), glm::vec3(3, -1, 0));
         modelMatrix *= glm::rotate(glm::mat4(1), glm::radians(-90.0f), glm::vec3(0, 1, 0));
         modelMatrix *= glm::scale(glm::mat4(1), glm::vec3(0.01f));
@@ -236,7 +246,7 @@ void AR_Mirror::Update(float deltaTimeSeconds)
         meshes["archer"]->Render();
     }
 
-    // Draw the reflection on the mesh
+    // Draw the mirror and the reflection on its surface
     {
         Shader *shader = shaders["CubeMap"];
         shader->Use();
@@ -248,8 +258,6 @@ void AR_Mirror::Update(float deltaTimeSeconds)
         glUniformMatrix4fv(shader->loc_model_matrix, 1, GL_FALSE, glm::value_ptr(modelMatrix));
         glUniformMatrix4fv(shader->loc_view_matrix, 1, GL_FALSE, glm::value_ptr(camera->GetViewMatrix()));
         glUniformMatrix4fv(shader->loc_projection_matrix, 1, GL_FALSE, glm::value_ptr(camera->GetProjectionMatrix()));
-
-        auto cameraPosition = camera->m_transform->GetWorldPosition();
 
         if (!color_texture) {
             glActiveTexture(GL_TEXTURE0);
@@ -264,12 +272,10 @@ void AR_Mirror::Update(float deltaTimeSeconds)
             int loc_texture2 = shader->GetUniformLocation("texture_cubemap");
             glUniform1i(loc_texture2, 1);
         }
-        
 
+        auto cameraPosition = camera->m_transform->GetWorldPosition();
         int loc_camera = shader->GetUniformLocation("camera_position");
         glUniform3f(loc_camera, cameraPosition.x, cameraPosition.y, cameraPosition.z);
-        
-        glUniform1i(shader->GetUniformLocation("type"), type);
 
         meshes["mirror"]->Render();
     }
@@ -278,7 +284,7 @@ void AR_Mirror::Update(float deltaTimeSeconds)
 
 void AR_Mirror::FrameEnd()
 {
-    // DrawCoordinateSystem();
+    DrawCoordinateSystem();
 }
 
 
@@ -293,11 +299,11 @@ unsigned int AR_Mirror::UploadCubeMapTexture(const std::string &pos_x, const std
     unsigned char* data_neg_y = stbi_load(neg_y.c_str(), &width, &height, &chn, 0);
     unsigned char* data_neg_z = stbi_load(neg_z.c_str(), &width, &height, &chn, 0);
 
+    // Create the texture
     unsigned int textureID = 0;
-    // TODO(student): Create the texture
     glGenTextures(1, &textureID);
 
-    // TODO(student): Bind the texture
+    // Bind the texture
     glBindTexture(GL_TEXTURE_CUBE_MAP, textureID);
 
     glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
@@ -317,7 +323,7 @@ unsigned int AR_Mirror::UploadCubeMapTexture(const std::string &pos_x, const std
 
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
-    // TODO(student): Load texture information for each face
+    // Load texture information for each face
     glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data_pos_x);
     glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_Y, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data_pos_y);
     glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_Z, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data_pos_z);
@@ -326,10 +332,6 @@ unsigned int AR_Mirror::UploadCubeMapTexture(const std::string &pos_x, const std
     glTexImage2D(GL_TEXTURE_CUBE_MAP_NEGATIVE_Z, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data_neg_z);
 
     glGenerateMipmap(GL_TEXTURE_CUBE_MAP);
-    if (GetOpenGLError() == GL_INVALID_OPERATION)
-    {
-        cout << "\t[NOTE] : For students : DON'T PANIC! This error should go away when completing the tasks." << std::endl;
-    }
 
     // Free memory
     SAFE_FREE(data_pos_x);
@@ -344,19 +346,15 @@ unsigned int AR_Mirror::UploadCubeMapTexture(const std::string &pos_x, const std
 
 void AR_Mirror::CreateFramebuffer(int width, int height)
 {
-    // TODO(student): In this method, use the attributes
-    // 'framebuffer_object', 'color_texture'
-    // declared in lab6.h
-
-    // TODO(student): Generate and bind the framebuffer
+    // Generate and bind the framebuffer
     glGenFramebuffers(1, &framebuffer_object);
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer_object);
 
-    // TODO(student): Generate and bind the color texture
+    // Generate and bind the color texture
     glGenTextures(1, &color_texture);
     glBindTexture(GL_TEXTURE_CUBE_MAP, color_texture);
 
-    // TODO(student): Initialize the color textures
+    // Initialize the color textures
     glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
     glTexImage2D(GL_TEXTURE_CUBE_MAP_NEGATIVE_X, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
     glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_Y, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
@@ -365,7 +363,7 @@ void AR_Mirror::CreateFramebuffer(int width, int height)
     glTexImage2D(GL_TEXTURE_CUBE_MAP_NEGATIVE_Z, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
 
     if (color_texture) {
-        //cubemap params
+        //Cubemap parameters
         glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
 
         glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -392,11 +390,11 @@ void AR_Mirror::CreateFramebuffer(int width, int height)
         glDrawBuffers((GLsizei)draw_textures.size(), &draw_textures[0]);
     }
 
-    // TODO(student): Generate and bind the depth texture
+    // Generate and bind the depth texture
     glGenTextures(1, &depth_texture);
     glBindTexture(GL_TEXTURE_CUBE_MAP, depth_texture);
 
-    // TODO(student): Initialize the depth textures
+    // Initialize the depth textures
     glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X, 0, GL_DEPTH_COMPONENT, width, height, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
     glTexImage2D(GL_TEXTURE_CUBE_MAP_NEGATIVE_X, 0, GL_DEPTH_COMPONENT, width, height, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
     glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_Y, 0, GL_DEPTH_COMPONENT, width, height, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
@@ -414,64 +412,13 @@ void AR_Mirror::CreateFramebuffer(int width, int height)
 }
 
 
-/*
- *  These are callback functions. To find more about callbacks and
- *  how they behave, see `input_controller.h`.
- */
-
-
-void AR_Mirror::OnInputUpdate(float deltaTime, int mods)
-{
-    // Treat continuous update based on input
-}
-
+// Callback functions
 
 void AR_Mirror::OnKeyPress(int key, int mods)
 {
     // Add key press event
-    if (key == GLFW_KEY_1)
+    if (key == GLFW_KEY_SPACE)
     {
-        type=1;
+        draw_outlines = draw_outlines == 0 ? 1 : 0;
     }
-
-    if (key == GLFW_KEY_2)
-    {
-        type=0;
-    }
-}
-
-
-void AR_Mirror::OnKeyRelease(int key, int mods)
-{
-    // Add key release event
-}
-
-
-void AR_Mirror::OnMouseMove(int mouseX, int mouseY, int deltaX, int deltaY)
-{
-    // Add mouse move event
-}
-
-
-void AR_Mirror::OnMouseBtnPress(int mouseX, int mouseY, int button, int mods)
-{
-    // Add mouse button press event
-}
-
-
-void AR_Mirror::OnMouseBtnRelease(int mouseX, int mouseY, int button, int mods)
-{
-    // Add mouse button release event
-}
-
-
-void AR_Mirror::OnMouseScroll(int mouseX, int mouseY, int offsetX, int offsetY)
-{
-    // Treat mouse scroll event
-}
-
-
-void AR_Mirror::OnWindowResize(int width, int height)
-{
-    // Treat window resize event
 }
