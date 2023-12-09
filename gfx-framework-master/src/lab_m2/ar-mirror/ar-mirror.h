@@ -24,7 +24,10 @@ namespace m2
 
         unsigned int UploadCubeMapTexture(const std::string &pos_x, const std::string &pos_y, const std::string &pos_z, const std::string &neg_x, const std::string &neg_y, const std::string &neg_z);
 
+        void UpdateObjectPositions(float deltaTimeSeconds);
+
         void OnKeyPress(int key, int mods) override;
+        void OnInputUpdate(float deltaTime, int mods) override;
 
      private:
         int cubeMapTextureID = 0;
@@ -34,5 +37,17 @@ namespace m2
         unsigned int depth_texture;
         unsigned int draw_outlines;
 
+        glm::vec3 mirror_position;
+        float mirror_angle_OX;
+        float mirror_angle_OY;
+        float mirror_angle_OZ;
+        float mirror_translate_x = 0;
+        float mirror_translate_y = 0;
+        float mirror_translate_z = 0;
+        float mirror_rotate_OX = 0;
+        float mirror_rotate_OY = 0;
+        float mirror_rotate_OZ = 0;
+        float translate_step = 5;
+        float rotate_step = 30;
     };
-}   // namespace m2
+} 

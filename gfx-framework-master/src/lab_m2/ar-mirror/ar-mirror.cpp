@@ -14,10 +14,14 @@ AR_Mirror::AR_Mirror()
     framebuffer_object = 0;
     color_texture = 0;
     depth_texture = 0;
+    draw_outlines = 0;
 
     archer_angle = 0;
 
-    draw_outlines = 0;
+    mirror_position = glm::vec3(0);
+    mirror_angle_OX = 0;
+    mirror_angle_OY = 0;
+    mirror_angle_OZ = 0;
 }
 
 
@@ -114,10 +118,9 @@ void AR_Mirror::FrameStart()
 {
 }
 
-
 void AR_Mirror::Update(float deltaTimeSeconds)
 {
-    archer_angle += 0.5f * deltaTimeSeconds;
+    UpdateObjectPositions(deltaTimeSeconds);
 
     auto camera = GetSceneCamera();
 
@@ -252,7 +255,11 @@ void AR_Mirror::Update(float deltaTimeSeconds)
         shader->Use();
 
         glm::mat4 modelMatrix = glm::mat4(1);
+        modelMatrix *= glm::translate(glm::mat4(1), mirror_position);
         modelMatrix *= glm::rotate(glm::mat4(1), glm::radians(90.0f), glm::vec3(1, 0, 0));
+        modelMatrix *= glm::rotate(glm::mat4(1), glm::radians(mirror_angle_OX), glm::vec3(1, 0, 0));
+        modelMatrix *= glm::rotate(glm::mat4(1), glm::radians(mirror_angle_OY), glm::vec3(0, 1, 0));
+        modelMatrix *= glm::rotate(glm::mat4(1), glm::radians(mirror_angle_OZ), glm::vec3(0, 0, 1));
         modelMatrix *= glm::scale(glm::mat4(1), glm::vec3(0.1f));
 
         glUniformMatrix4fv(shader->loc_model_matrix, 1, GL_FALSE, glm::value_ptr(modelMatrix));
@@ -285,6 +292,18 @@ void AR_Mirror::Update(float deltaTimeSeconds)
 void AR_Mirror::FrameEnd()
 {
     DrawCoordinateSystem();
+}
+
+
+void AR_Mirror::UpdateObjectPositions(float deltaTimeSeconds)
+{
+    archer_angle += 0.5f * deltaTimeSeconds;
+    mirror_position.x = mirror_translate_x;
+    mirror_position.y = mirror_translate_y;
+    mirror_position.z = mirror_translate_z;
+    mirror_angle_OX = mirror_rotate_OX;
+    mirror_angle_OY = mirror_rotate_OY;
+    mirror_angle_OZ = mirror_rotate_OZ;
 }
 
 
@@ -416,9 +435,50 @@ void AR_Mirror::CreateFramebuffer(int width, int height)
 
 void AR_Mirror::OnKeyPress(int key, int mods)
 {
-    // Add key press event
+    // Toggle outline drawing 
     if (key == GLFW_KEY_SPACE)
     {
         draw_outlines = draw_outlines == 0 ? 1 : 0;
     }
+}
+
+void AR_Mirror::OnInputUpdate(float deltaTime, int mods)
+{
+    // Mirror translations
+    if (window->KeyHold(GLFW_KEY_W))
+        mirror_translate_z += translate_step * deltaTime;
+
+    if (window->KeyHold(GLFW_KEY_S))
+        mirror_translate_z -= translate_step * deltaTime;
+
+    if (window->KeyHold(GLFW_KEY_D))
+        mirror_translate_x += translate_step * deltaTime;
+
+    if (window->KeyHold(GLFW_KEY_A))
+        mirror_translate_x -= translate_step * deltaTime;
+
+    if (window->KeyHold(GLFW_KEY_E))
+        mirror_translate_y += translate_step * deltaTime;
+
+    if (window->KeyHold(GLFW_KEY_Q))
+        mirror_translate_y -= translate_step * deltaTime;
+
+    // Mirror rotations
+    if (window->KeyHold(GLFW_KEY_I))
+        mirror_rotate_OZ += rotate_step * deltaTime;
+
+    if (window->KeyHold(GLFW_KEY_K))
+        mirror_rotate_OZ -= rotate_step * deltaTime;
+
+    if (window->KeyHold(GLFW_KEY_L))
+        mirror_rotate_OX += rotate_step * deltaTime;
+
+    if (window->KeyHold(GLFW_KEY_J))
+        mirror_rotate_OX -= rotate_step * deltaTime;
+
+    if (window->KeyHold(GLFW_KEY_O))
+        mirror_rotate_OY += rotate_step * deltaTime;
+
+    if (window->KeyHold(GLFW_KEY_U))
+        mirror_rotate_OY -= rotate_step * deltaTime;
 }
