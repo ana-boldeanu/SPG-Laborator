@@ -18,17 +18,26 @@ namespace m2
         void Init() override;
 
      private:
-        void CreateFramebuffer(int width, int height);
         void FrameStart() override;
         void Update(float deltaTimeSeconds) override;
         void FrameEnd() override;
 
-        unsigned int UploadCubeMapTexture(const std::string &pos_x, const std::string &pos_y, const std::string &pos_z, const std::string &neg_x, const std::string &neg_y, const std::string &neg_z);
-
+        // Update
         void UpdateObjectPositions(float deltaTimeSeconds);
 
+        // Initializers
+        void LoadMeshes();
+        void LoadShaders();
+        void LoadTextures();
+
+        unsigned int UploadCubeMapTexture(const std::string &pos_x, const std::string &pos_y, const std::string &pos_z, const std::string &neg_x, const std::string &neg_y, const std::string &neg_z);
+        void CreateFramebuffer(int width, int height);
+        void LoadShader(const std::string& name, const std::string& VS, const std::string& FS, const std::string& GS, bool hasGeomtery);
+
+        // Callback functions
         void OnKeyPress(int key, int mods) override;
         void OnInputUpdate(float deltaTime, int mods) override;
+
 
      private:
         // Shader variables

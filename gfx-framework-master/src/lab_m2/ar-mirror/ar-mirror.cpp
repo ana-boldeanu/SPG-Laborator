@@ -38,91 +38,11 @@ void AR_Mirror::Init()
     camera->SetPositionAndRotation(glm::vec3(0, -1, 4), glm::quat(glm::vec3(RADIANS(10), 0, 0)));
     camera->Update();
 
-    std::string texturePath = PATH_JOIN(window->props.selfDir, RESOURCE_PATH::TEXTURES, "cube");
-    std::string shaderPath = PATH_JOIN(window->props.selfDir, SOURCE_PATH::M2, "ar-mirror", "shaders");
+    LoadMeshes();
+    LoadShaders();
+    LoadTextures();
 
-    {
-        Mesh* mesh = new Mesh("mirror");
-        mesh->LoadMesh(PATH_JOIN(window->props.selfDir, RESOURCE_PATH::MODELS, "primitives"), "plane50.obj");
-        mesh->UseMaterials(false);
-        meshes[mesh->GetMeshID()] = mesh;
-    }
-
-    {
-        Mesh* mesh = new Mesh("cube");
-        mesh->LoadMesh(PATH_JOIN(window->props.selfDir, RESOURCE_PATH::MODELS, "primitives"), "box.obj");
-        mesh->UseMaterials(false);
-        meshes[mesh->GetMeshID()] = mesh;
-    }
-
-    {
-        Mesh* mesh = new Mesh("archer");
-        mesh->LoadMesh(PATH_JOIN(window->props.selfDir, RESOURCE_PATH::MODELS, "characters", "archer"), "Archer.fbx");
-        mesh->UseMaterials(false);
-        meshes[mesh->GetMeshID()] = mesh;
-    }
-
-    // Create a shader program for rendering cubemap texture
-    {
-        Shader *shader = new Shader("CubeMap");
-        shader->AddShader(PATH_JOIN(shaderPath, "CubeMap.VS.glsl"), GL_VERTEX_SHADER);
-        shader->AddShader(PATH_JOIN(shaderPath, "CubeMap.FS.glsl"), GL_FRAGMENT_SHADER);
-        shader->CreateAndLink();
-        shaders[shader->GetName()] = shader;
-    }
-
-    // Create a shader program for standard rendering
-    {
-        Shader *shader = new Shader("ShaderNormal");
-        shader->AddShader(PATH_JOIN(shaderPath, "Normal.VS.glsl"), GL_VERTEX_SHADER);
-        shader->AddShader(PATH_JOIN(shaderPath, "Normal.FS.glsl"), GL_FRAGMENT_SHADER);
-        shader->CreateAndLink();
-        shaders[shader->GetName()] = shader;
-    }
-
-    // Create a shader program for creating a CUBEMAP
-    {
-        Shader *shader = new Shader("Framebuffer");
-        shader->AddShader(PATH_JOIN(shaderPath, "Framebuffer.VS.glsl"), GL_VERTEX_SHADER);
-        shader->AddShader(PATH_JOIN(shaderPath, "Framebuffer.FS.glsl"), GL_FRAGMENT_SHADER);
-        shader->AddShader(PATH_JOIN(shaderPath, "Framebuffer.GS.glsl"), GL_GEOMETRY_SHADER);
-        shader->CreateAndLink();
-        shaders[shader->GetName()] = shader;
-    }
-
-    // Create a shader program for firefly particles
-    {
-        Shader* shader = new Shader("Particle");
-        shader->AddShader(PATH_JOIN(shaderPath, "Particle.VS.glsl"), GL_VERTEX_SHADER);
-        shader->AddShader(PATH_JOIN(shaderPath, "Particle.FS.glsl"), GL_FRAGMENT_SHADER);
-        shader->AddShader(PATH_JOIN(shaderPath, "Particle.GS.glsl"), GL_GEOMETRY_SHADER);
-        shader->CreateAndLink();
-        shaders[shader->GetName()] = shader;
-    }
-
-    // Create a shader program for creating the cubemap when only outlines are seen
-    {
-        Shader* shader = new Shader("Framebuffer_Outlines");
-        shader->AddShader(PATH_JOIN(shaderPath, "Framebuffer.VS.glsl"), GL_VERTEX_SHADER);
-        shader->AddShader(PATH_JOIN(shaderPath, "Framebuffer.FS.glsl"), GL_FRAGMENT_SHADER);
-        shader->AddShader(PATH_JOIN(shaderPath, "Framebuffer_Outlines.GS.glsl"), GL_GEOMETRY_SHADER);
-        shader->CreateAndLink();
-        shaders[shader->GetName()] = shader;
-    }
-
-    cubeMapTextureID = UploadCubeMapTexture(
-        PATH_JOIN(texturePath, "pos_x.png"),
-        PATH_JOIN(texturePath, "pos_y.png"),
-        PATH_JOIN(texturePath, "pos_z.png"),
-        PATH_JOIN(texturePath, "neg_x.png"),
-        PATH_JOIN(texturePath, "neg_y.png"),
-        PATH_JOIN(texturePath, "neg_z.png"));
-
-    TextureManager::LoadTexture(PATH_JOIN(window->props.selfDir, RESOURCE_PATH::MODELS), "characters", "archer", "Akai_E_Espiritu.fbm", "akai_diffuse.png");
-    TextureManager::LoadTexture(PATH_JOIN(window->props.selfDir, RESOURCE_PATH::TEXTURES), "particle2.png");
-
-    // Create the framebuffer on which the scene is rendered from the perspective of the mesh
-    // Texture size must be cubic
+    // Create the framebuffer on which the scene is rendered from the perspective of the mesh (texture size must be cubic)
      CreateFramebuffer(1024, 1024);
 }
 
@@ -130,6 +50,7 @@ void AR_Mirror::Init()
 void AR_Mirror::FrameStart()
 {
 }
+
 
 void AR_Mirror::Update(float deltaTimeSeconds)
 {
@@ -350,6 +271,74 @@ void AR_Mirror::UpdateObjectPositions(float deltaTimeSeconds)
 }
 
 
+void AR_Mirror::LoadMeshes()
+{
+    {
+        Mesh* mesh = new Mesh("mirror");
+        mesh->LoadMesh(PATH_JOIN(window->props.selfDir, RESOURCE_PATH::MODELS, "primitives"), "plane50.obj");
+        mesh->UseMaterials(false);
+        meshes[mesh->GetMeshID()] = mesh;
+    }
+
+    {
+        Mesh* mesh = new Mesh("cube");
+        mesh->LoadMesh(PATH_JOIN(window->props.selfDir, RESOURCE_PATH::MODELS, "primitives"), "box.obj");
+        mesh->UseMaterials(false);
+        meshes[mesh->GetMeshID()] = mesh;
+    }
+
+    {
+        Mesh* mesh = new Mesh("archer");
+        mesh->LoadMesh(PATH_JOIN(window->props.selfDir, RESOURCE_PATH::MODELS, "characters", "archer"), "Archer.fbx");
+        mesh->UseMaterials(false);
+        meshes[mesh->GetMeshID()] = mesh;
+    }
+}
+
+
+void AR_Mirror::LoadShaders()
+{
+    LoadShader("CubeMap", "CubeMap", "CubeMap", "", false);     // Rendering cubemap texture
+    LoadShader("ShaderNormal", "Normal", "Normal", "", false);  // Standard rendering
+    LoadShader("Framebuffer", "Framebuffer", "Framebuffer", "Framebuffer", true); // Rendering cubemap in the framebuffer
+    LoadShader("Framebuffer_Outlines", "Framebuffer", "Framebuffer", "Framebuffer_Outlines", true); // Rendering cubemap with outlines only
+    LoadShader("Particle", "Particle", "Particle", "Particle", true);   // Rendering firefly particles effect
+}
+
+
+void AR_Mirror::LoadTextures()
+{
+    std::string texturePath_cubemap = PATH_JOIN(window->props.selfDir, RESOURCE_PATH::TEXTURES, "cube");
+
+    cubeMapTextureID = UploadCubeMapTexture(
+        PATH_JOIN(texturePath_cubemap, "pos_x.png"),
+        PATH_JOIN(texturePath_cubemap, "pos_y.png"),
+        PATH_JOIN(texturePath_cubemap, "pos_z.png"),
+        PATH_JOIN(texturePath_cubemap, "neg_x.png"),
+        PATH_JOIN(texturePath_cubemap, "neg_y.png"),
+        PATH_JOIN(texturePath_cubemap, "neg_z.png"));
+
+    TextureManager::LoadTexture(PATH_JOIN(window->props.selfDir, RESOURCE_PATH::MODELS), "characters", "archer", "Akai_E_Espiritu.fbm", "akai_diffuse.png");
+    TextureManager::LoadTexture(PATH_JOIN(window->props.selfDir, RESOURCE_PATH::TEXTURES), "particle2.png");
+}
+
+
+void AR_Mirror::LoadShader(const std::string& name, const std::string& VS, const std::string& FS, const std::string& GS, bool hasGeomtery)
+{
+    std::string shaderPath = PATH_JOIN(window->props.selfDir, SOURCE_PATH::M2, "ar-mirror", "shaders");
+    Shader* shader = new Shader(name);
+    shader->AddShader(PATH_JOIN(shaderPath, VS + ".VS.glsl"), GL_VERTEX_SHADER);
+    shader->AddShader(PATH_JOIN(shaderPath, FS + ".FS.glsl"), GL_FRAGMENT_SHADER);
+    if (hasGeomtery)
+    {
+        shader->AddShader(PATH_JOIN(shaderPath, GS + ".GS.glsl"), GL_GEOMETRY_SHADER);
+    }
+
+    shader->CreateAndLink();
+    shaders[shader->GetName()] = shader;
+}
+
+
 unsigned int AR_Mirror::UploadCubeMapTexture(const std::string &pos_x, const std::string &pos_y, const std::string &pos_z, const std::string& neg_x, const std::string& neg_y, const std::string& neg_z)
 {
     int width, height, chn;
@@ -405,6 +394,7 @@ unsigned int AR_Mirror::UploadCubeMapTexture(const std::string &pos_x, const std
 
     return textureID;
 }
+
 
 void AR_Mirror::CreateFramebuffer(int width, int height)
 {
@@ -474,8 +464,6 @@ void AR_Mirror::CreateFramebuffer(int width, int height)
 }
 
 
-// Callback functions
-
 void AR_Mirror::OnKeyPress(int key, int mods)
 {
     // Toggle outline drawing 
@@ -484,6 +472,7 @@ void AR_Mirror::OnKeyPress(int key, int mods)
         draw_outlines = draw_outlines == 0 ? 1 : 0;
     }
 }
+
 
 void AR_Mirror::OnInputUpdate(float deltaTime, int mods)
 {
