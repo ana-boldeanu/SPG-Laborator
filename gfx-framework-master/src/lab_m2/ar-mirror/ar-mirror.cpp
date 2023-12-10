@@ -22,6 +22,8 @@ AR_Mirror::AR_Mirror()
     mirror_angle_OX = 0;
     mirror_angle_OY = 0;
     mirror_angle_OZ = 0;
+
+    fireflyEffect = new FireflyEffect(1000, 0.25f, glm::vec3(0));
 }
 
 
@@ -88,7 +90,17 @@ void AR_Mirror::Init()
         shaders[shader->GetName()] = shader;
     }
 
-    // Create a shader program for creating a CUBEMAP
+    // Create a shader program for firefly particles
+    {
+        Shader* shader = new Shader("Particle");
+        shader->AddShader(PATH_JOIN(shaderPath, "Particle.VS.glsl"), GL_VERTEX_SHADER);
+        shader->AddShader(PATH_JOIN(shaderPath, "Particle.FS.glsl"), GL_FRAGMENT_SHADER);
+        shader->AddShader(PATH_JOIN(shaderPath, "Particle.GS.glsl"), GL_GEOMETRY_SHADER);
+        shader->CreateAndLink();
+        shaders[shader->GetName()] = shader;
+    }
+
+    // Create a shader program for creating the cubemap when only outlines are seen
     {
         Shader* shader = new Shader("Framebuffer_Outlines");
         shader->AddShader(PATH_JOIN(shaderPath, "Framebuffer.VS.glsl"), GL_VERTEX_SHADER);
@@ -107,6 +119,7 @@ void AR_Mirror::Init()
         PATH_JOIN(texturePath, "neg_z.png"));
 
     TextureManager::LoadTexture(PATH_JOIN(window->props.selfDir, RESOURCE_PATH::MODELS), "characters", "archer", "Akai_E_Espiritu.fbm", "akai_diffuse.png");
+    TextureManager::LoadTexture(PATH_JOIN(window->props.selfDir, RESOURCE_PATH::TEXTURES), "particle2.png");
 
     // Create the framebuffer on which the scene is rendered from the perspective of the mesh
     // Texture size must be cubic
@@ -286,6 +299,36 @@ void AR_Mirror::Update(float deltaTimeSeconds)
 
         meshes["mirror"]->Render();
     }
+
+    // Draw the particles effects
+    glLineWidth(3);
+    glEnable(GL_BLEND);
+    glDisable(GL_DEPTH_TEST);
+    glBlendFunc(GL_ONE, GL_ONE);
+    glBlendEquation(GL_FUNC_ADD);
+
+    {
+        auto shader = shaders["Particle"];
+        if (shader->GetProgramID())
+        {
+            shader->Use();
+            TextureManager::GetTexture("particle2.png")->BindToTextureUnit(GL_TEXTURE0);
+            fireflyEffect->particleEffect->Render(GetSceneCamera(), shader);
+
+            glm::vec3& generator_position = fireflyEffect->generator_position;
+            GLint loc_generator_position = glGetUniformLocation(shader->program, "generator_position");
+            glUniform3f(loc_generator_position, generator_position.x, generator_position.y, generator_position.z);
+
+            GLint loc_deltaTime = glGetUniformLocation(shader->program, "deltaTime");
+            glUniform1f(loc_deltaTime, deltaTimeSeconds);
+
+            GLint loc_offset = glGetUniformLocation(shader->program, "offset");
+            glUniform1f(loc_offset, 0.2f);
+        }
+    }
+
+    glEnable(GL_DEPTH_TEST);
+    glDisable(GL_BLEND);
 }
 
 

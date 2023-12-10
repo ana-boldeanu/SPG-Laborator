@@ -95,7 +95,7 @@ void Lab4::Init()
 
     generator_position = glm::vec3(0, 0, 0);
     scene = 0;
-    offset = 0.05;
+    offset = 0.05f;
 }
 
 void Lab4::ResetParticlesFireworks(int xSize, int ySize, int zSize)
@@ -179,7 +179,7 @@ void Lab4::ResetParticlesFire(float radius)
     for (unsigned int i = 0; i < nrParticles; i++)
     {
         glm::vec3 pos(1);
-        pos.x = (rand() % 100 - 50)/ 100.0f ;
+        pos.x = (rand() % 100 - 50)/ 100.0f;
         pos.y = (rand() % 100 - 50)/ 100.0f;
         pos.z = (rand() % 100 - 50)/ 100.0f;
         pos = glm::normalize(pos) * radius ;
@@ -381,9 +381,9 @@ void Lab4::OnInputUpdate(float deltaTime, int mods)
     }
 
     if (window->KeyHold(GLFW_KEY_Z))
-        offset += deltaTime * 0.1;
+        offset += deltaTime * 0.1f;
     if (window->KeyHold(GLFW_KEY_X))
-        offset -= deltaTime * 0.1;
+        offset -= deltaTime * 0.1f;
 
 
 }
@@ -412,7 +412,7 @@ void Lab4::OnKeyPress(int key, int mods)
     if (key == GLFW_KEY_4)
     {
         scene = 3;
-        ResetParticlesFire(0.25);
+        ResetParticlesFire(0.25f);
         generator_position = glm::vec3(0, 0, 0);
     }
 }
