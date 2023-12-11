@@ -38,7 +38,7 @@ void main()
 {
     float ds = offset;
 
-    // TODO(student): Create a quad based on `triangle_strip`.
+    // Create a quad based on `triangle_strip`.
     //
     //  2---------3
     //  | \       |
@@ -46,12 +46,9 @@ void main()
     //  |       \ |
     //  0---------1
     //
-    // Triangles: (0, 1, 3), (1, 2, 3)
-    // Hint: before you emit a vertex, you have to specify its texture
-    // coordinates and pass on the values of vert_lifetime[0] and 
+    // Triangles: (0, 1, 2), (1, 2, 3)
+    // Before emitting a vertex, specify its texture coordinates and pass on the values of vert_lifetime[0] and 
     // vert_ilifetime[0] in geom_lifetime and geom_ilifetime
-    // Hint: if a point has the coordinates (0,0), then the quad will have the following coords:
-    // (-ds,-ds), (ds,-ds), (ds,ds)....
 
     geom_lifetime = vert_lifetime[0];
     geom_iLifetime = vert_iLifetime[0];

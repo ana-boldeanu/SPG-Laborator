@@ -8,6 +8,7 @@ layout(location = 2) in vec2 v_texture_coord;
 // Uniform properties
 uniform mat4 Model;
 uniform vec3 generator_position;
+uniform vec3 bezier_points[5][4]; // 5 bezier curves, each defined by 4 control points
 uniform float deltaTime;
 
 out float vert_lifetime;
@@ -16,8 +17,8 @@ out float vert_iLifetime;
 struct Particle
 {
     vec4 position;
-    vec4 speed;
     vec4 iposition;
+    vec4 speed;
     vec4 ispeed;
     float delay;
     float iDelay;
@@ -39,38 +40,35 @@ float rand(vec2 co)
 
 void main()
 {
-    vec3 pos = data[gl_VertexID].position.xyz;
-    vec3 spd = data[gl_VertexID].speed.xyz;
+    vec3 position = data[gl_VertexID].position.xyz;
+    vec3 speed = data[gl_VertexID].speed.xyz;
     float lifetime = data[gl_VertexID].lifetime;
+    float initial_lifetime = data[gl_VertexID].iLifetime;
 
-    // TODO(student): Compute the new lifetime of the fire particle based on the actual lifetime
-    // The lifetime should decrease each frame with deltaTime
-    
+    // Update the particle's lifetime, as it should decrease each frame with deltaTime
     lifetime -= deltaTime;
 
-    // TODO(student): Compute the new position as the sum
-    // between the actual position and the speed.
-    //
-    // Because the y coordinate is already set positive since the
-    // initialization performed on the cpu => the fire
-    // will go downwards.
-    //
-    // For animations that are independent of the platform,
-    // the speed must be multiplied with deltaTime.
+    // Compute the next position on the bezier curve, using interpolation via the particle's lifetime.
+    int curveID = gl_VertexID % 5;
 
-    pos += spd * deltaTime;
+    float t = 1 - lifetime / initial_lifetime;   // t == 0 when lifetime = initial_lifetime
+
+    position = pow((1 - t), 3) * bezier_points[curveID][0]
+        + 3 * pow((1 - t), 2) * t * bezier_points[curveID][1]
+        + 3 * pow((1 - t), 2) * t * t * bezier_points[curveID][2]
+        + t * t * t * bezier_points[curveID][3];
 
     if (lifetime < 0)
     {
-        pos = data[gl_VertexID].iposition.xyz;
+        position = data[gl_VertexID].iposition.xyz;
         lifetime = data[gl_VertexID].iLifetime;
     }
 
-    data[gl_VertexID].position.xyz = pos;
+    data[gl_VertexID].position.xyz = position;
     data[gl_VertexID].lifetime = lifetime;
 
     vert_lifetime = lifetime;
     vert_iLifetime = data[gl_VertexID].iLifetime;
 
-    gl_Position = Model * vec4(pos + generator_position, 1);
+    gl_Position = Model * vec4(position + generator_position, 1);
 }
