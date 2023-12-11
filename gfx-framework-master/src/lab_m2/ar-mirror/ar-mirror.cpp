@@ -23,7 +23,7 @@ AR_Mirror::AR_Mirror()
     mirror_angle_OY = 0;
     mirror_angle_OZ = 0;
 
-    fireflyEffect = new FireflyEffect(1000, 0.25f, glm::vec3(0));
+    fireflyEffect = new FireflyEffect(100, 0.25f, glm::vec3(0));
 }
 
 
@@ -43,7 +43,7 @@ void AR_Mirror::Init()
     LoadTextures();
 
     // Create the framebuffer on which the scene is rendered from the perspective of the mesh (texture size must be cubic)
-     CreateFramebuffer(1024, 1024);
+    CreateFramebuffer(1024, 1024);
 }
 
 
@@ -110,12 +110,12 @@ void AR_Mirror::Update(float deltaTimeSeconds)
 
             glm::mat4 cubeView[6] =
             {
-                glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(0.0f,-1.0f, 0.0f)),  // +X
-                glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(-1.0f, 0.0f, 0.0f), glm::vec3(0.0f,-1.0f, 0.0f)), // -X
-                glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f)),  // +Y
-                glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, -1.0f, 0.0f), glm::vec3(0.0f, 0.0f,-1.0f)), // -Y
-                glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(0.0f,-1.0f, 0.0f)),  // +Z
-                glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f,-1.0f, 0.0f)), // -Z
+                glm::lookAt(mirror_position, mirror_position + glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(0.0f,-1.0f, 0.0f)),  // +X
+                glm::lookAt(mirror_position, mirror_position + glm::vec3(-1.0f, 0.0f, 0.0f), glm::vec3(0.0f,-1.0f, 0.0f)), // -X
+                glm::lookAt(mirror_position, mirror_position + glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f)),  // +Y
+                glm::lookAt(mirror_position, mirror_position + glm::vec3(0.0f, -1.0f, 0.0f), glm::vec3(0.0f, 0.0f,-1.0f)), // -Y
+                glm::lookAt(mirror_position, mirror_position + glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(0.0f,-1.0f, 0.0f)),  // +Z
+                glm::lookAt(mirror_position, mirror_position + glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f,-1.0f, 0.0f)), // -Z
             };
 
             glUniformMatrix4fv(glGetUniformLocation(shader->GetProgramID(), "viewMatrices"), 6, GL_FALSE, glm::value_ptr(cubeView[0]));
@@ -190,11 +190,10 @@ void AR_Mirror::Update(float deltaTimeSeconds)
 
         glm::mat4 modelMatrix = glm::mat4(1);
         modelMatrix *= glm::translate(glm::mat4(1), mirror_position);
-        modelMatrix *= glm::rotate(glm::mat4(1), glm::radians(90.0f), glm::vec3(1, 0, 0));
         modelMatrix *= glm::rotate(glm::mat4(1), glm::radians(mirror_angle_OX), glm::vec3(1, 0, 0));
         modelMatrix *= glm::rotate(glm::mat4(1), glm::radians(mirror_angle_OY), glm::vec3(0, 1, 0));
         modelMatrix *= glm::rotate(glm::mat4(1), glm::radians(mirror_angle_OZ), glm::vec3(0, 0, 1));
-        modelMatrix *= glm::scale(glm::mat4(1), glm::vec3(0.1f));
+        modelMatrix *= glm::scale(glm::mat4(1), glm::vec3(2.5f));
 
         glUniformMatrix4fv(shader->loc_model_matrix, 1, GL_FALSE, glm::value_ptr(modelMatrix));
         glUniformMatrix4fv(shader->loc_view_matrix, 1, GL_FALSE, glm::value_ptr(camera->GetViewMatrix()));
@@ -239,6 +238,9 @@ void AR_Mirror::Update(float deltaTimeSeconds)
             glm::vec3& generator_position = fireflyEffect->generator_position;
             GLint loc_generator_position = glGetUniformLocation(shader->program, "generator_position");
             glUniform3f(loc_generator_position, generator_position.x, generator_position.y, generator_position.z);
+;
+            GLint loc_bezier_points = glGetUniformLocation(shader->program, "bezier_points");
+            glUniform3fv(loc_bezier_points, 20, glm::value_ptr(fireflyEffect->bezier_points[0][0]));
 
             GLint loc_deltaTime = glGetUniformLocation(shader->program, "deltaTime");
             glUniform1f(loc_deltaTime, deltaTimeSeconds);
@@ -275,7 +277,7 @@ void AR_Mirror::LoadMeshes()
 {
     {
         Mesh* mesh = new Mesh("mirror");
-        mesh->LoadMesh(PATH_JOIN(window->props.selfDir, RESOURCE_PATH::MODELS, "primitives"), "plane50.obj");
+        mesh->LoadMesh(PATH_JOIN(window->props.selfDir, RESOURCE_PATH::MODELS, "primitives"), "quad.obj");
         mesh->UseMaterials(false);
         meshes[mesh->GetMeshID()] = mesh;
     }
@@ -476,11 +478,15 @@ void AR_Mirror::OnKeyPress(int key, int mods)
 
 void AR_Mirror::OnInputUpdate(float deltaTime, int mods)
 {
+    // Don't move mirror if the camera is moving
+    if (window->MouseHold(GLFW_MOUSE_BUTTON_2))
+        return;
+    
     // Mirror translations
-    if (window->KeyHold(GLFW_KEY_W))
+    if (window->KeyHold(GLFW_KEY_S))
         mirror_translate_z += translate_step * deltaTime;
 
-    if (window->KeyHold(GLFW_KEY_S))
+    if (window->KeyHold(GLFW_KEY_W))
         mirror_translate_z -= translate_step * deltaTime;
 
     if (window->KeyHold(GLFW_KEY_D))
@@ -496,21 +502,21 @@ void AR_Mirror::OnInputUpdate(float deltaTime, int mods)
         mirror_translate_y -= translate_step * deltaTime;
 
     // Mirror rotations
-    if (window->KeyHold(GLFW_KEY_I))
+    if (window->KeyHold(GLFW_KEY_O))
         mirror_rotate_OZ += rotate_step * deltaTime;
 
-    if (window->KeyHold(GLFW_KEY_K))
+    if (window->KeyHold(GLFW_KEY_U))
         mirror_rotate_OZ -= rotate_step * deltaTime;
 
-    if (window->KeyHold(GLFW_KEY_L))
+    if (window->KeyHold(GLFW_KEY_I))
         mirror_rotate_OX += rotate_step * deltaTime;
 
-    if (window->KeyHold(GLFW_KEY_J))
+    if (window->KeyHold(GLFW_KEY_K))
         mirror_rotate_OX -= rotate_step * deltaTime;
 
-    if (window->KeyHold(GLFW_KEY_O))
+    if (window->KeyHold(GLFW_KEY_L))
         mirror_rotate_OY += rotate_step * deltaTime;
 
-    if (window->KeyHold(GLFW_KEY_U))
+    if (window->KeyHold(GLFW_KEY_J))
         mirror_rotate_OY -= rotate_step * deltaTime;
 }
