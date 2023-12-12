@@ -49,6 +49,9 @@ namespace m2
 
         // Particle effects
         FireflyEffect* fireflyEffect;
+        float fireflyEffect_radius = 0.25f;
+        unsigned int fireflyEffect_particles = 100;
+        unsigned int draw_fireflyEffect = 0;
 
         // Mirror movement
         glm::vec3 mirror_position;

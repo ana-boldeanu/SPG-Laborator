@@ -23,7 +23,7 @@ AR_Mirror::AR_Mirror()
     mirror_angle_OY = 0;
     mirror_angle_OZ = 0;
 
-    fireflyEffect = new FireflyEffect(100, 0.25f, glm::vec3(0));
+    fireflyEffect = new FireflyEffect(fireflyEffect_particles, fireflyEffect_radius, glm::vec3(0));
 }
 
 
@@ -92,8 +92,7 @@ void AR_Mirror::Update(float deltaTimeSeconds)
         }
 
         auto camera_forward = camera->m_transform->GetLocalOZVector();
-        int loc_camera_forward = shader->GetUniformLocation("camera_forward");
-        glUniform3f(loc_camera_forward, camera_forward.x, camera_forward.y, camera_forward.z);
+        glUniform3f(shader->GetUniformLocation("camera_forward"), camera_forward.x, camera_forward.y, camera_forward.z);
 
         glUniform1i(shader->GetUniformLocation("draw_outlines"), draw_outlines);
 
@@ -154,8 +153,7 @@ void AR_Mirror::Update(float deltaTimeSeconds)
 
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_CUBE_MAP, cubeMapTextureID);
-        int loc_texture = shader->GetUniformLocation("texture_cubemap");
-        glUniform1i(loc_texture, 0);
+        glUniform1i(shader->GetUniformLocation("texture_cubemap"), 0);
 
         meshes["cube"]->Render();
     }
@@ -202,56 +200,52 @@ void AR_Mirror::Update(float deltaTimeSeconds)
         if (!color_texture) {
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_CUBE_MAP, cubeMapTextureID);
-            int loc_texture = shader->GetUniformLocation("texture_cubemap");
-            glUniform1i(loc_texture, 0);
+            glUniform1i(shader->GetUniformLocation("texture_cubemap"), 0);
         }
 
         if (color_texture) {
             glActiveTexture(GL_TEXTURE1);
             glBindTexture(GL_TEXTURE_CUBE_MAP, color_texture);
-            int loc_texture2 = shader->GetUniformLocation("texture_cubemap");
-            glUniform1i(loc_texture2, 1);
+            glUniform1i(shader->GetUniformLocation("texture_cubemap"), 1);
         }
 
         auto cameraPosition = camera->m_transform->GetWorldPosition();
-        int loc_camera = shader->GetUniformLocation("camera_position");
-        glUniform3f(loc_camera, cameraPosition.x, cameraPosition.y, cameraPosition.z);
+        glUniform3f(shader->GetUniformLocation("camera_position"), cameraPosition.x, cameraPosition.y, cameraPosition.z);
 
         meshes["mirror"]->Render();
     }
 
-    // Draw the particles effects
-    glLineWidth(3);
-    glEnable(GL_BLEND);
-    glDisable(GL_DEPTH_TEST);
-    glBlendFunc(GL_ONE, GL_ONE);
-    glBlendEquation(GL_FUNC_ADD);
-
+    // Draw the particles effects (should find a way to draw it in cubemap only)
+    if (draw_fireflyEffect)
     {
-        auto shader = shaders["Particle"];
-        if (shader->GetProgramID())
+        glLineWidth(3);
+        glEnable(GL_BLEND);
+        glDisable(GL_DEPTH_TEST);
+        glBlendFunc(GL_ONE, GL_ONE);
+        glBlendEquation(GL_FUNC_ADD);
+
         {
-            shader->Use();
-            TextureManager::GetTexture("particle2.png")->BindToTextureUnit(GL_TEXTURE0);
-            fireflyEffect->particleEffect->Render(GetSceneCamera(), shader);
+            auto shader = shaders["Particle"];
+            if (shader->GetProgramID())
+            {
+                shader->Use();
+                TextureManager::GetTexture("particle2.png")->BindToTextureUnit(GL_TEXTURE0);
+                fireflyEffect->particleEffect->Render(GetSceneCamera(), shader);
 
-            glm::vec3& generator_position = fireflyEffect->generator_position;
-            GLint loc_generator_position = glGetUniformLocation(shader->program, "generator_position");
-            glUniform3f(loc_generator_position, generator_position.x, generator_position.y, generator_position.z);
-;
-            GLint loc_bezier_points = glGetUniformLocation(shader->program, "bezier_points");
-            glUniform3fv(loc_bezier_points, 20, glm::value_ptr(fireflyEffect->bezier_points[0][0]));
+                glm::vec3& generator_position = fireflyEffect->generator_position;
+                glUniform3f(glGetUniformLocation(shader->program, "generator_position"), generator_position.x, generator_position.y, generator_position.z);
 
-            GLint loc_deltaTime = glGetUniformLocation(shader->program, "deltaTime");
-            glUniform1f(loc_deltaTime, deltaTimeSeconds);
+                glUniform3fv(glGetUniformLocation(shader->program, "bezier_points"), 20, glm::value_ptr(fireflyEffect->bezier_points[0]));
 
-            GLint loc_offset = glGetUniformLocation(shader->program, "offset");
-            glUniform1f(loc_offset, 0.2f);
+                glUniform1f(glGetUniformLocation(shader->program, "deltaTime"), deltaTimeSeconds);
+
+                glUniform1f(glGetUniformLocation(shader->program, "offset"), 0.2f);
+            }
         }
-    }
 
-    glEnable(GL_DEPTH_TEST);
-    glDisable(GL_BLEND);
+        glEnable(GL_DEPTH_TEST);
+        glDisable(GL_BLEND);
+    }
 }
 
 
@@ -470,8 +464,13 @@ void AR_Mirror::OnKeyPress(int key, int mods)
 {
     // Toggle outline drawing 
     if (key == GLFW_KEY_SPACE)
-    {
         draw_outlines = draw_outlines == 0 ? 1 : 0;
+
+    // Toggle firefly effect drawing 
+    if (key == GLFW_KEY_F)
+    {
+        draw_fireflyEffect = draw_fireflyEffect == 0 ? 1 : 0;
+        fireflyEffect->ResetParticles(fireflyEffect_radius);
     }
 }
 

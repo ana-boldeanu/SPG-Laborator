@@ -18,6 +18,6 @@ namespace m2
         ParticleEffect<Particle>* particleEffect;
         unsigned int nrParticles;
         glm::vec3 generator_position;
-        glm::vec3 bezier_points[5][4] = {glm::vec3(0)};  // 5 Bezier lines, each line defined by 4 control points
+        glm::vec3 bezier_points[20] = {glm::vec3(0)};  // 5 Bezier lines, each line defined by 4 control points
     };
 }
