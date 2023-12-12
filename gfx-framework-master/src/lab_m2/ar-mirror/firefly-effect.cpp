@@ -12,9 +12,9 @@ FireflyEffect::FireflyEffect(unsigned int nrParticles, float radius, glm::vec3 g
 
     // Define the 5 bezier curves that the particles will follow
     glm::vec3 point_1_ref = glm::vec3(0, 0, 0);
-    glm::vec3 point_2_ref = glm::vec3(1, 2, 0);
-    glm::vec3 point_3_ref = glm::vec3(1.5f, 0.5f, 0);
-    glm::vec3 point_4_ref = glm::vec3(2, 2, 0);
+    glm::vec3 point_2_ref = glm::vec3(2, 0.5f, -2);
+    glm::vec3 point_3_ref = glm::vec3(3, 1, 2);
+    glm::vec3 point_4_ref = glm::vec3(-2, 1.5f, 0);
     glm::vec3 points_ref[4] = { point_1_ref, point_2_ref, point_3_ref, point_4_ref };
 
     float angle = RADIANS(360 / 5);

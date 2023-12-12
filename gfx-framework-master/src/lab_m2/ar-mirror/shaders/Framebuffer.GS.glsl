@@ -7,7 +7,6 @@ layout(triangle_strip, max_vertices = 36) out;
 uniform mat4 View;
 uniform mat4 Projection;
 uniform mat4 viewMatrices[6];
-uniform vec3 camera_forward;
 
 // Input from vertex shader
 in vec3 geom_position[3];

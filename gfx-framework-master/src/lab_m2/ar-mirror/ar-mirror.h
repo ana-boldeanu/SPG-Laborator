@@ -60,7 +60,7 @@ namespace m2
         float mirror_angle_OZ;
         float mirror_translate_x = 0;
         float mirror_translate_y = 0;
-        float mirror_translate_z = 0;
+        float mirror_translate_z = -7;
         float mirror_rotate_OX = 0;
         float mirror_rotate_OY = 0;
         float mirror_rotate_OZ = 0;

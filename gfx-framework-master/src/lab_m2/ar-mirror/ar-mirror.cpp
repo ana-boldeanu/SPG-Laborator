@@ -35,7 +35,7 @@ AR_Mirror::~AR_Mirror()
 void AR_Mirror::Init()
 {
     auto camera = GetSceneCamera();
-    camera->SetPositionAndRotation(glm::vec3(0, -1, 4), glm::quat(glm::vec3(RADIANS(10), 0, 0)));
+    camera->SetPositionAndRotation(glm::vec3(0, -1, 0), glm::quat(glm::vec3(RADIANS(10), 0, 0)));
     camera->Update();
 
     LoadMeshes();
@@ -75,6 +75,7 @@ void AR_Mirror::Update(float deltaTimeSeconds)
 
         glm::mat4 projection = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 100.0f);
 
+        // Draw the cubemap
         {
             glm::mat4 modelMatrix = glm::scale(glm::mat4(1), glm::vec3(30));
 
@@ -85,7 +86,6 @@ void AR_Mirror::Update(float deltaTimeSeconds)
             glActiveTexture(GL_TEXTURE1);
             glBindTexture(GL_TEXTURE_CUBE_MAP, cubeMapTextureID);
             glUniform1i(glGetUniformLocation(shader->program, "texture_cubemap"), 1);
-
             glUniform1i(glGetUniformLocation(shader->program, "draw_cubemap"), 1);
 
             meshes["cube"]->Render();
@@ -93,8 +93,17 @@ void AR_Mirror::Update(float deltaTimeSeconds)
 
         auto camera_forward = camera->m_transform->GetLocalOZVector();
         glUniform3f(shader->GetUniformLocation("camera_forward"), camera_forward.x, camera_forward.y, camera_forward.z);
-
         glUniform1i(shader->GetUniformLocation("draw_outlines"), draw_outlines);
+
+        glm::mat4 cubeView[6] =
+        {
+            glm::lookAt(mirror_position, mirror_position + glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(0.0f,-1.0f, 0.0f)),  // +X
+            glm::lookAt(mirror_position, mirror_position + glm::vec3(-1.0f, 0.0f, 0.0f), glm::vec3(0.0f,-1.0f, 0.0f)), // -X
+            glm::lookAt(mirror_position, mirror_position + glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f)),  // +Y
+            glm::lookAt(mirror_position, mirror_position + glm::vec3(0.0f, -1.0f, 0.0f), glm::vec3(0.0f, 0.0f,-1.0f)), // -Y
+            glm::lookAt(mirror_position, mirror_position + glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(0.0f,-1.0f, 0.0f)),  // +Z
+            glm::lookAt(mirror_position, mirror_position + glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f,-1.0f, 0.0f)), // -Z
+        };
 
         for (int i = 0; i < 5; i++)
         {
@@ -106,27 +115,47 @@ void AR_Mirror::Update(float deltaTimeSeconds)
 
             glUniformMatrix4fv(shader->loc_model_matrix, 1, GL_FALSE, glm::value_ptr(modelMatrix));
             glUniformMatrix4fv(shader->loc_view_matrix, 1, GL_FALSE, glm::value_ptr(camera->GetViewMatrix()));
-
-            glm::mat4 cubeView[6] =
-            {
-                glm::lookAt(mirror_position, mirror_position + glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(0.0f,-1.0f, 0.0f)),  // +X
-                glm::lookAt(mirror_position, mirror_position + glm::vec3(-1.0f, 0.0f, 0.0f), glm::vec3(0.0f,-1.0f, 0.0f)), // -X
-                glm::lookAt(mirror_position, mirror_position + glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f)),  // +Y
-                glm::lookAt(mirror_position, mirror_position + glm::vec3(0.0f, -1.0f, 0.0f), glm::vec3(0.0f, 0.0f,-1.0f)), // -Y
-                glm::lookAt(mirror_position, mirror_position + glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(0.0f,-1.0f, 0.0f)),  // +Z
-                glm::lookAt(mirror_position, mirror_position + glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f,-1.0f, 0.0f)), // -Z
-            };
-
             glUniformMatrix4fv(glGetUniformLocation(shader->GetProgramID(), "viewMatrices"), 6, GL_FALSE, glm::value_ptr(cubeView[0]));
             glUniformMatrix4fv(shader->loc_projection_matrix, 1, GL_FALSE, glm::value_ptr(projection));
+            glUniform1i(glGetUniformLocation(shader->program, "draw_cubemap"), 0);
 
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, TextureManager::GetTexture("Akai_E_Espiritu.fbm\\akai_diffuse.png")->GetTextureID());
             glUniform1i(glGetUniformLocation(shader->program, "texture_1"), 0);
 
-            glUniform1i(glGetUniformLocation(shader->program, "draw_cubemap"), 0);
-
             meshes["archer"]->Render();
+        }
+
+        // Draw the particles firefly effect (Visible in mirror only)
+        if (draw_fireflyEffect)
+        {
+            glLineWidth(3);
+            glEnable(GL_BLEND);
+            glDisable(GL_DEPTH_TEST);
+            glBlendFunc(GL_ONE, GL_ONE);
+            glBlendEquation(GL_FUNC_ADD);
+
+            {
+                shader = shaders["Particle"];
+                if (shader->GetProgramID())
+                {
+                    shader->Use();
+                    TextureManager::GetTexture("particle2.png")->BindToTextureUnit(GL_TEXTURE0);
+                    fireflyEffect->particleEffect->Render(GetSceneCamera(), shader);
+
+                    glm::vec3& generator_position = fireflyEffect->generator_position;
+                    glUniformMatrix4fv(shader->loc_projection_matrix, 1, GL_FALSE, glm::value_ptr(projection));
+                    glUniformMatrix4fv(glGetUniformLocation(shader->GetProgramID(), "viewMatrices"), 6, GL_FALSE, glm::value_ptr(cubeView[0]));
+                    glUniform3f(glGetUniformLocation(shader->program, "mirror_position"), mirror_position.x, mirror_position.y, mirror_position.z);
+                    glUniform3f(glGetUniformLocation(shader->program, "generator_position"), generator_position.x, generator_position.y, generator_position.z);
+                    glUniform3fv(glGetUniformLocation(shader->program, "bezier_points"), 20, glm::value_ptr(fireflyEffect->bezier_points[0]));
+                    glUniform1f(glGetUniformLocation(shader->program, "deltaTime"), deltaTimeSeconds);
+                    glUniform1f(glGetUniformLocation(shader->program, "offset"), 0.2f);
+                }
+            }
+
+            glEnable(GL_DEPTH_TEST);
+            glDisable(GL_BLEND);
         }
 
         glBindTexture(GL_TEXTURE_CUBE_MAP, color_texture);
@@ -213,38 +242,6 @@ void AR_Mirror::Update(float deltaTimeSeconds)
         glUniform3f(shader->GetUniformLocation("camera_position"), cameraPosition.x, cameraPosition.y, cameraPosition.z);
 
         meshes["mirror"]->Render();
-    }
-
-    // Draw the particles effects (should find a way to draw it in cubemap only)
-    if (draw_fireflyEffect)
-    {
-        glLineWidth(3);
-        glEnable(GL_BLEND);
-        glDisable(GL_DEPTH_TEST);
-        glBlendFunc(GL_ONE, GL_ONE);
-        glBlendEquation(GL_FUNC_ADD);
-
-        {
-            auto shader = shaders["Particle"];
-            if (shader->GetProgramID())
-            {
-                shader->Use();
-                TextureManager::GetTexture("particle2.png")->BindToTextureUnit(GL_TEXTURE0);
-                fireflyEffect->particleEffect->Render(GetSceneCamera(), shader);
-
-                glm::vec3& generator_position = fireflyEffect->generator_position;
-                glUniform3f(glGetUniformLocation(shader->program, "generator_position"), generator_position.x, generator_position.y, generator_position.z);
-
-                glUniform3fv(glGetUniformLocation(shader->program, "bezier_points"), 20, glm::value_ptr(fireflyEffect->bezier_points[0]));
-
-                glUniform1f(glGetUniformLocation(shader->program, "deltaTime"), deltaTimeSeconds);
-
-                glUniform1f(glGetUniformLocation(shader->program, "offset"), 0.2f);
-            }
-        }
-
-        glEnable(GL_DEPTH_TEST);
-        glDisable(GL_BLEND);
     }
 }
 
