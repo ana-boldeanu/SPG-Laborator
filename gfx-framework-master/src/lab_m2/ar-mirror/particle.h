@@ -19,7 +19,6 @@ namespace m2
         glm::vec4 position;
         glm::vec4 initialPosition;
         glm::vec4 speed;
-        glm::vec4 initialSpeed;
         float delay;
         float initialDelay;
         float lifetime;

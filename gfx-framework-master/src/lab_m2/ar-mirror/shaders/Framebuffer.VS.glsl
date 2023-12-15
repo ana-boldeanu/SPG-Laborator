@@ -18,7 +18,7 @@ out vec2 geom_texture_coord;
 void main()
 {
     geom_position = v_position;
-    geom_normal = v_normal;
+    geom_normal = normalize(mat3(Model) * v_normal);
     geom_texture_coord = v_texture_coord;
 
     gl_Position = Model * vec4(v_position, 1); 

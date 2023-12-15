@@ -64,7 +64,7 @@ namespace m2
         float mirror_rotate_OX = 0;
         float mirror_rotate_OY = 0;
         float mirror_rotate_OZ = 0;
-        float translate_step = 5;
+        float translate_step = 3;
         float rotate_step = 30;
 
         // Other scene elements

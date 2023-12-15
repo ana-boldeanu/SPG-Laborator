@@ -35,7 +35,7 @@ AR_Mirror::~AR_Mirror()
 void AR_Mirror::Init()
 {
     auto camera = GetSceneCamera();
-    camera->SetPositionAndRotation(glm::vec3(0, -1, 0), glm::quat(glm::vec3(RADIANS(10), 0, 0)));
+    camera->SetPositionAndRotation(glm::vec3(0.5f, -0.5f, -1), glm::quat(glm::vec3(RADIANS(10), 0, 0)));
     camera->Update();
 
     LoadMeshes();
@@ -105,6 +105,7 @@ void AR_Mirror::Update(float deltaTimeSeconds)
             glm::lookAt(mirror_position, mirror_position + glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f,-1.0f, 0.0f)), // -Z
         };
 
+        // Draw the archers in the mirror
         for (int i = 0; i < 5; i++)
         {
             glm::mat4 modelMatrix = glm::mat4(1);
@@ -115,8 +116,8 @@ void AR_Mirror::Update(float deltaTimeSeconds)
 
             glUniformMatrix4fv(shader->loc_model_matrix, 1, GL_FALSE, glm::value_ptr(modelMatrix));
             glUniformMatrix4fv(shader->loc_view_matrix, 1, GL_FALSE, glm::value_ptr(camera->GetViewMatrix()));
-            glUniformMatrix4fv(glGetUniformLocation(shader->GetProgramID(), "viewMatrices"), 6, GL_FALSE, glm::value_ptr(cubeView[0]));
             glUniformMatrix4fv(shader->loc_projection_matrix, 1, GL_FALSE, glm::value_ptr(projection));
+            glUniformMatrix4fv(glGetUniformLocation(shader->GetProgramID(), "viewMatrices"), 6, GL_FALSE, glm::value_ptr(cubeView[0]));
             glUniform1i(glGetUniformLocation(shader->program, "draw_cubemap"), 0);
 
             glActiveTexture(GL_TEXTURE0);
@@ -124,6 +125,21 @@ void AR_Mirror::Update(float deltaTimeSeconds)
             glUniform1i(glGetUniformLocation(shader->program, "texture_1"), 0);
 
             meshes["archer"]->Render();
+        }
+
+        // Draw the teapot in the mirror
+        {
+            glm::mat4 modelMatrix = glm::mat4(1);
+            modelMatrix *= glm::translate(glm::mat4(1), glm::vec3(0, 1, -4));
+            modelMatrix *= glm::rotate(glm::mat4(1), archer_angle, glm::vec3(0.5f, 0.5f, 0));
+
+            glUniformMatrix4fv(shader->loc_model_matrix, 1, GL_FALSE, glm::value_ptr(modelMatrix));
+            glUniformMatrix4fv(shader->loc_view_matrix, 1, GL_FALSE, glm::value_ptr(camera->GetViewMatrix()));
+            glUniformMatrix4fv(shader->loc_projection_matrix, 1, GL_FALSE, glm::value_ptr(projection));
+            glUniformMatrix4fv(glGetUniformLocation(shader->GetProgramID(), "viewMatrices"), 6, GL_FALSE, glm::value_ptr(cubeView[0]));
+            glUniform1i(glGetUniformLocation(shader->program, "draw_cubemap"), 0);
+
+            meshes["teapot"]->Render();
         }
 
         // Draw the particles firefly effect (Visible in mirror only)
@@ -210,6 +226,22 @@ void AR_Mirror::Update(float deltaTimeSeconds)
         meshes["archer"]->Render();
     }
 
+    // Draw the teapot in front of the mirror
+    {
+        Shader* shader = shaders["Simple"];
+        shader->Use();
+
+        glm::mat4 modelMatrix = glm::mat4(1);
+        modelMatrix *= glm::translate(glm::mat4(1), glm::vec3(0, 1, -4));
+        modelMatrix *= glm::rotate(glm::mat4(1), archer_angle, glm::vec3(0.5f, 0.5f, 0));
+
+        glUniformMatrix4fv(shader->loc_model_matrix, 1, GL_FALSE, glm::value_ptr(modelMatrix));
+        glUniformMatrix4fv(shader->loc_view_matrix, 1, GL_FALSE, glm::value_ptr(camera->GetViewMatrix()));
+        glUniformMatrix4fv(shader->loc_projection_matrix, 1, GL_FALSE, glm::value_ptr(camera->GetProjectionMatrix()));
+
+        meshes["teapot"]->Render();
+    }
+
     // Draw the mirror and the reflection on its surface
     {
         Shader *shader = shaders["CubeMap"];
@@ -283,6 +315,13 @@ void AR_Mirror::LoadMeshes()
     {
         Mesh* mesh = new Mesh("archer");
         mesh->LoadMesh(PATH_JOIN(window->props.selfDir, RESOURCE_PATH::MODELS, "characters", "archer"), "Archer.fbx");
+        mesh->UseMaterials(false);
+        meshes[mesh->GetMeshID()] = mesh;
+    }
+
+    {
+        Mesh* mesh = new Mesh("teapot");
+        mesh->LoadMesh(PATH_JOIN(window->props.selfDir, RESOURCE_PATH::MODELS, "primitives"), "teapot.obj");
         mesh->UseMaterials(false);
         meshes[mesh->GetMeshID()] = mesh;
     }

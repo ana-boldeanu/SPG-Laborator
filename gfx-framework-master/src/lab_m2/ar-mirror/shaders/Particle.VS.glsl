@@ -19,7 +19,6 @@ struct Particle
     vec4 position;
     vec4 iPosition;
     vec4 speed;
-    vec4 ispeed;
     float delay;
     float iDelay;
     float lifetime;
@@ -41,12 +40,12 @@ float rand(vec2 co)
 void main()
 {
     // Get the particle's speed
-    vec4 speed = data[gl_VertexID].speed;
+    float speed = data[gl_VertexID].speed.x;
     
     // Calculate remaining particle delay
     float delay = data[gl_VertexID].delay;
 
-    delay -= deltaTime / 2;
+    delay -= deltaTime * speed;
     if (delay > 0) 
     {
         // Continue without updating position

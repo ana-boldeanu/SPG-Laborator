@@ -48,7 +48,7 @@ void FireflyEffect::ResetParticles(float radius)
     for (unsigned int i = 0; i < nrParticles; i++)
     {
         // Some random initial speed
-        glm::vec3 speed = glm::normalize(glm::vec3(0, 5, 0));
+        glm::vec3 speed = glm::normalize(glm::vec3(2, 1, 1));
         speed *= (rand() % 100 / 100.0f);
         speed += glm::vec3(rand() % 5 / 5.0f, rand() % 5 / 5.0f, rand() % 5 / 5.0f) * 0.2f;
 

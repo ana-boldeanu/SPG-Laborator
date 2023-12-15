@@ -19,12 +19,14 @@ in vec2 geom_texture_coord[3];
 out vec3 frag_position;
 out vec2 frag_texture_coord;
 
+float zero_tol = 0.0001f;
+
 int areSegmentEdgesOppositeOrientation(vec3 P_1_normal, vec3 P_2_normal)
 {
     float dot_1 = dot(P_1_normal, normalize(camera_forward));
     float dot_2 = dot(P_2_normal, normalize(camera_forward));
 
-    if ((dot_1 > 0 && dot_2 < 0) || (dot_1 < 0 && dot_2 > 0))
+    if ((dot_1 > zero_tol && dot_2 < zero_tol) || (dot_1 < zero_tol && dot_2 > zero_tol))
         return 1;
     
     return 0;

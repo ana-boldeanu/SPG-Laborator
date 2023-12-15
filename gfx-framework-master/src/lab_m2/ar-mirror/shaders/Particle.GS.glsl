@@ -47,8 +47,12 @@ void main()
     // Before emitting a vertex, specify its texture coordinates and pass on the values of vert_lifetime[0] and 
     // vert_ilifetime[0] in geom_lifetime and geom_ilifetime
 
-    vec3 up_vals[6] = { vec3(0.0f,-1.0f, 0.0f), vec3(0.0f,-1.0f, 0.0f), vec3(0.0f, 0.0f, 1.0f),
-        vec3(0.0f, 0.0f, -1.0f), vec3(0.0f,-1.0f, 0.0f), vec3(0.0f,-1.0f, 0.0f) };
+    vec3 up_vals[6] = {vec3(0.0f,-1.0f, 0.0f),
+        vec3(0.0f,-1.0f, 0.0f),
+        vec3(0.0f, 0.0f, 1.0f),
+        vec3(0.0f, 0.0f,-1.0f),
+        vec3(0.0f,-1.0f, 0.0f),
+        vec3(0.0f,-1.0f, 0.0f), };
 
     for (int layer = 0; layer < 6; ++layer)
     {

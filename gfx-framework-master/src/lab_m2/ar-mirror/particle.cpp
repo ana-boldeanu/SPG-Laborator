@@ -27,7 +27,6 @@ void Particle::SetInitial(const glm::vec4& position, const glm::vec4& speed, flo
     initialPosition = position;
 
     this->speed = speed;
-    initialSpeed = speed;
 
     this->delay = delay;
     initialDelay = delay;
