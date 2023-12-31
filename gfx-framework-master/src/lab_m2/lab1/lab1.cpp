@@ -71,6 +71,7 @@ void Lab1::Update(float deltaTimeSeconds)
 
         // TODO(student): Add a shrinking parameter for scaling each
         // triangle in the geometry shader
+        glUniform1f(shader->GetUniformLocation("shrink"), shrink);
 
         // Note that we only render a single mesh!
         RenderMesh(meshes["bamboo"], shaders["Instances"], glm::vec3(-3.3f, 0.5f, 0), glm::vec3(0.1f));
@@ -95,7 +96,11 @@ void Lab1::OnInputUpdate(float deltaTime, int mods)
     // Treat continuous update based on input with window->KeyHold()
 
     // TODO(student): Add events for modifying the shrinking parameter
+    if (window->KeyHold(GLFW_KEY_X))
+        shrink += 0.1f * deltaTime;
 
+    if (window->KeyHold(GLFW_KEY_Z))
+        shrink -= 0.1f * deltaTime;
 }
 
 

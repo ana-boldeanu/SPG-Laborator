@@ -44,7 +44,7 @@ int main(int argc, char **argv)
     (void)Engine::Init(wp);
 
     // Create a new 3D world and start running it
-    World *world = new m2::AR_Mirror();
+    World *world = new m2::Lab1();
 
     world->Init();
     world->Run();
