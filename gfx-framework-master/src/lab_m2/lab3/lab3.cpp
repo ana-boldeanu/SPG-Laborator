@@ -119,7 +119,7 @@ void Lab3::CreateFramebuffer(int width, int height)
     // TODO(student): Set the color texture as the draw texture
     std::vector<GLenum> draw_textures;
     draw_textures.push_back(GL_COLOR_ATTACHMENT0);
-    glDrawBuffers(draw_textures.size(), &draw_textures[0]);
+    glDrawBuffers((GLsizei)draw_textures.size(), &draw_textures[0]);
 
     // TODO(student): Check the status of the framebuffer
     glCheckFramebufferStatus(GL_FRAMEBUFFER);
