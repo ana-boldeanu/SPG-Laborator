@@ -137,9 +137,9 @@ void Watermark::Sobel()
 
     glm::ivec2 imageSize = glm::ivec2(grayscaleImage->GetWidth(), grayscaleImage->GetHeight());
 
-    for (i = 1; i < imageSize.y - 1; ++i)
+    for (i = 0; i < imageSize.y; ++i)
     {
-        for (j = 1; j < imageSize.x - 1; ++j)
+        for (j = 0; j < imageSize.x; ++j)
         {
             offset = channels * (i * imageSize.x + j);
 
@@ -149,7 +149,11 @@ void Watermark::Sobel()
             {
                 for (n = j - 1; n <= j + 1; ++n)
                 {
-                    neighbours[idx] = data[channels * (m * imageSize.x + n)];
+                    // Treat image bounds
+                    if (m == -1 || n == -1 || m == imageSize.y || n == imageSize.x)
+                        neighbours[idx] = 0;
+                    else
+                        neighbours[idx] = data[channels * (m * imageSize.x + n)];
                     ++idx;
                 }
             }
