@@ -29,8 +29,9 @@ Watermark::~Watermark()
 void Watermark::Init()
 {
     // Load default texture fore imagine processing
-    originalImage = TextureManager::LoadTexture(PATH_JOIN(window->props.selfDir, RESOURCE_PATH::TEXTURES, "cube", "pos_x.png"), nullptr, "image", true, true);
-    processedImage = TextureManager::LoadTexture(PATH_JOIN(window->props.selfDir, RESOURCE_PATH::TEXTURES, "cube", "pos_x.png"), nullptr, "newImage", true, true);
+    originalImage = TextureManager::LoadTexture(PATH_JOIN(window->props.selfDir, SOURCE_PATH::M2, "watermark", "test_images", "star.png"), nullptr, "image", true, true);
+    grayscaleImage = TextureManager::LoadTexture(PATH_JOIN(window->props.selfDir, SOURCE_PATH::M2, "watermark", "test_images", "star.png"), nullptr, "grayscaleImage", true, true);
+    sobelImage = TextureManager::LoadTexture(PATH_JOIN(window->props.selfDir, SOURCE_PATH::M2, "watermark", "test_images", "star.png"), nullptr, "sobelImage", true, true);
 
     {
         Mesh* mesh = new Mesh("quad");
@@ -67,7 +68,7 @@ void Watermark::Update(float deltaTimeSeconds)
 
     glUniform1i(shader->GetUniformLocation("textureImage"), 0);
 
-    auto textureImage = processedImage;
+    auto textureImage = showSobel ? sobelImage : grayscaleImage;
     textureImage->BindToTextureUnit(GL_TEXTURE0);
 
     RenderMesh(meshes["quad"], shader, glm::mat4(1));
@@ -86,7 +87,8 @@ void Watermark::OnFileSelected(const std::string &fileName)
     {
         std::cout << fileName << endl;
         originalImage = TextureManager::LoadTexture(fileName, nullptr, "image", true, true);
-        processedImage = TextureManager::LoadTexture(fileName, nullptr, "newImage", true, true);
+        grayscaleImage = TextureManager::LoadTexture(fileName, nullptr, "grayscaleImage", true, true);
+        sobelImage = TextureManager::LoadTexture(fileName, nullptr, "sobelImage", true, true);
 
         float aspectRatio = static_cast<float>(originalImage->GetWidth()) / originalImage->GetHeight();
         window->SetSize(static_cast<int>(600 * aspectRatio), 600);
@@ -98,33 +100,82 @@ void Watermark::GrayScale()
 {
     unsigned int channels = originalImage->GetNrChannels();
     unsigned char* data = originalImage->GetImageData();
-    unsigned char* newData = processedImage->GetImageData();
+    unsigned char* newData = grayscaleImage->GetImageData();
 
     if (channels < 3)
         return;
 
     glm::ivec2 imageSize = glm::ivec2(originalImage->GetWidth(), originalImage->GetHeight());
 
-    for (int i = 0; i < imageSize.y; i++)
+    for (int i = 0; i < imageSize.y; ++i)
     {
-        for (int j = 0; j < imageSize.x; j++)
+        for (int j = 0; j < imageSize.x; ++j)
         {
             int offset = channels * (i * imageSize.x + j);
 
             // Reset save image data
-            char value = static_cast<char>(data[offset + 0] * 0.2f + data[offset + 1] * 0.71f + data[offset + 2] * 0.07);
+            char value = CharToGrayScale(data[offset + 0], data[offset + 1], data[offset + 2]);
             memset(&newData[offset], value, 3);
         }
     }
 
-    processedImage->UploadNewData(newData);
+    grayscaleImage->UploadNewData(newData);
+}
+
+
+void Watermark::Sobel()
+{
+    unsigned int channels = grayscaleImage->GetNrChannels();
+    unsigned char* data = grayscaleImage->GetImageData();
+    unsigned char* newData = sobelImage->GetImageData();
+    unsigned char neighbours[9] = { 0 };
+    unsigned char dx, dy, d;
+    int i, j, m, n, idx, offset;
+
+    if (channels < 3)
+        return;
+
+    glm::ivec2 imageSize = glm::ivec2(grayscaleImage->GetWidth(), grayscaleImage->GetHeight());
+
+    for (i = 1; i < imageSize.y - 1; ++i)
+    {
+        for (j = 1; j < imageSize.x - 1; ++j)
+        {
+            offset = channels * (i * imageSize.x + j);
+
+            // Get neighbours grayscale values
+            idx = 0;
+            for (m = i - 1; m <= i + 1; ++m)
+            {
+                for (n = j - 1; n <= j + 1; ++n)
+                {
+                    neighbours[idx] = data[channels * (m * imageSize.x + n)];
+                    ++idx;
+                }
+            }
+            
+            // Apply sobel filter
+            dx = static_cast<unsigned char>(abs(-neighbours[0] + neighbours[2] - 2 * neighbours[3] + 2 * neighbours[5] - neighbours[6] + neighbours[8]));
+            dy = static_cast<unsigned char>(abs(-neighbours[0] - 2 * neighbours[1] - neighbours[2] + neighbours[6] + 2 * neighbours[7] + neighbours[8]));
+            d = static_cast<unsigned char>(floor(sqrt(pow(dx, 2) + pow(dy, 2))));
+
+            if (d > sobelThreshold)
+                d = 255;
+            else
+                d = 0;
+            
+            memset(&newData[offset], d, 3);
+        }
+    }
+
+    sobelImage->UploadNewData(newData);
 }
 
 
 void Watermark::SaveImage(const std::string &fileName)
 {
     cout << "Saving image! ";
-    processedImage->SaveToFile((fileName + ".png").c_str());
+    grayscaleImage->SaveToFile((fileName + ".png").c_str());
     cout << "[Done]" << endl;
 }
 
@@ -154,9 +205,11 @@ void Watermark::OnKeyPress(int key, int mods)
         OpenDialog();
     }
 
-    if (key == GLFW_KEY_0)
+    if (key == GLFW_KEY_1)
     {
         GrayScale();
+        Sobel();
+        showSobel = true;
     }
 
     if (key == GLFW_KEY_S && mods & GLFW_MOD_CONTROL)

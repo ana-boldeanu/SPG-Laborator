@@ -27,11 +27,19 @@ namespace m2
         void OnFileSelected(const std::string &fileName);
 
         // Processing effects
+        inline char CharToGrayScale(char red, char green, char blue) { return static_cast<char>(red * 0.2f + green * 0.71f + blue * 0.07); }
         void GrayScale();
+        void Sobel();
+
         void SaveImage(const std::string &fileName);
 
      private:
-        Texture2D *originalImage;
-        Texture2D *processedImage;
+        unsigned char sobelThreshold = 20;
+        bool showSobel = false;
+
+        Texture2D* originalImage;
+        Texture2D* grayscaleImage;
+        Texture2D* sobelImage;
+
     };
 }   // namespace m2
