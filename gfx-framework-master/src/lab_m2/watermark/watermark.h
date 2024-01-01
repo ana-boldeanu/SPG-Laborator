@@ -28,18 +28,25 @@ namespace m2
 
         // Processing effects
         inline char CharToGrayScale(char red, char green, char blue) { return static_cast<char>(red * 0.2f + green * 0.71f + blue * 0.07); }
-        void GrayScale();
-        void Sobel();
+        void GrayScale(bool onWatermark = false);
+        void Sobel(bool onWatermark = false);
+
+        void ApplySobelOnWatermark();
+        void ApplySobelOnLoadedImage();
 
         void SaveImage(const std::string &fileName);
 
      private:
-        unsigned char sobelThreshold = 20;
-        bool showSobel = false;
+        unsigned char sobelThreshold = 25;
+        bool showWatermark = false;
+        int showImageMode = 1; // 1 = original, 2 = grayscale, 3 = sobel
 
         Texture2D* originalImage;
         Texture2D* grayscaleImage;
         Texture2D* sobelImage;
 
+        Texture2D* originalWatermark;
+        Texture2D* grayscaleWatermark;
+        Texture2D* sobelWatermark;
     };
 }   // namespace m2

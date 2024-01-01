@@ -28,10 +28,15 @@ Watermark::~Watermark()
 
 void Watermark::Init()
 {
-    // Load default texture fore imagine processing
+    // Load default texture for imagine processing
     originalImage = TextureManager::LoadTexture(PATH_JOIN(window->props.selfDir, SOURCE_PATH::M2, "watermark", "test_images", "star.png"), nullptr, "image", true, true);
     grayscaleImage = TextureManager::LoadTexture(PATH_JOIN(window->props.selfDir, SOURCE_PATH::M2, "watermark", "test_images", "star.png"), nullptr, "grayscaleImage", true, true);
     sobelImage = TextureManager::LoadTexture(PATH_JOIN(window->props.selfDir, SOURCE_PATH::M2, "watermark", "test_images", "star.png"), nullptr, "sobelImage", true, true);
+
+    // Load watermark image
+    originalWatermark = TextureManager::LoadTexture(PATH_JOIN(window->props.selfDir, SOURCE_PATH::M2, "watermark", "test_images", "watermark.png"), nullptr, "watermark", true, true);
+    grayscaleWatermark = TextureManager::LoadTexture(PATH_JOIN(window->props.selfDir, SOURCE_PATH::M2, "watermark", "test_images", "watermark.png"), nullptr, "grayscaleWatermark", true, true);
+    sobelWatermark = TextureManager::LoadTexture(PATH_JOIN(window->props.selfDir, SOURCE_PATH::M2, "watermark", "test_images", "watermark.png"), nullptr, "sobelWatermark", true, true);
 
     {
         Mesh* mesh = new Mesh("quad");
@@ -51,6 +56,9 @@ void Watermark::Init()
         shader->CreateAndLink();
         shaders[shader->GetName()] = shader;
     }
+
+    // Process watermark image
+    ApplySobelOnWatermark();
 }
 
 
@@ -68,7 +76,23 @@ void Watermark::Update(float deltaTimeSeconds)
 
     glUniform1i(shader->GetUniformLocation("textureImage"), 0);
 
-    auto textureImage = showSobel ? sobelImage : grayscaleImage;
+    Texture2D* textureImage;
+    switch (showImageMode) {
+    case 2:
+        textureImage = grayscaleImage;
+        break;
+    case 3:
+        textureImage = sobelImage;
+        break;
+    case 1:
+    default:
+        textureImage = originalImage;
+    }
+
+    if (showWatermark) {
+        textureImage = sobelWatermark;
+    }
+
     textureImage->BindToTextureUnit(GL_TEXTURE0);
 
     RenderMesh(meshes["quad"], shader, glm::mat4(1));
@@ -81,31 +105,42 @@ void Watermark::FrameEnd()
 }
 
 
-void Watermark::OnFileSelected(const std::string &fileName)
+void Watermark::ApplySobelOnWatermark()
 {
-    if (fileName.size())
-    {
-        std::cout << fileName << endl;
-        originalImage = TextureManager::LoadTexture(fileName, nullptr, "image", true, true);
-        grayscaleImage = TextureManager::LoadTexture(fileName, nullptr, "grayscaleImage", true, true);
-        sobelImage = TextureManager::LoadTexture(fileName, nullptr, "sobelImage", true, true);
-
-        float aspectRatio = static_cast<float>(originalImage->GetWidth()) / originalImage->GetHeight();
-        window->SetSize(static_cast<int>(600 * aspectRatio), 600);
-    }
+    GrayScale(true);
+    Sobel(true);
 }
 
 
-void Watermark::GrayScale()
+void Watermark::ApplySobelOnLoadedImage()
 {
-    unsigned int channels = originalImage->GetNrChannels();
-    unsigned char* data = originalImage->GetImageData();
-    unsigned char* newData = grayscaleImage->GetImageData();
+    GrayScale();
+    Sobel();
+}
+
+
+void Watermark::GrayScale(bool onWatermark)
+{
+    unsigned int channels;
+    unsigned char *data, *newData;
+    glm::ivec2 imageSize;
+
+    if (onWatermark) {
+        channels = originalWatermark->GetNrChannels();
+        data = originalWatermark->GetImageData();
+        newData = grayscaleWatermark->GetImageData();
+        imageSize = glm::ivec2(originalWatermark->GetWidth(), originalWatermark->GetHeight());
+    }
+    else {
+        channels = originalImage->GetNrChannels();
+        data = originalImage->GetImageData();
+        newData = grayscaleImage->GetImageData();
+        imageSize = glm::ivec2(originalImage->GetWidth(), originalImage->GetHeight());
+    }
 
     if (channels < 3)
         return;
 
-    glm::ivec2 imageSize = glm::ivec2(originalImage->GetWidth(), originalImage->GetHeight());
 
     for (int i = 0; i < imageSize.y; ++i)
     {
@@ -119,23 +154,40 @@ void Watermark::GrayScale()
         }
     }
 
-    grayscaleImage->UploadNewData(newData);
+    if (onWatermark) {
+        grayscaleWatermark->UploadNewData(newData);
+    }
+    else {
+        grayscaleImage->UploadNewData(newData);
+    }
 }
 
 
-void Watermark::Sobel()
+void Watermark::Sobel(bool onWatermark)
 {
-    unsigned int channels = grayscaleImage->GetNrChannels();
-    unsigned char* data = grayscaleImage->GetImageData();
-    unsigned char* newData = sobelImage->GetImageData();
+    unsigned int channels;
+    unsigned char *data, *newData;
     unsigned char neighbours[9] = { 0 };
     unsigned char dx, dy, d;
     int i, j, m, n, idx, offset;
+    glm::ivec2 imageSize;
+
+    if (onWatermark)
+    {
+        channels = grayscaleWatermark->GetNrChannels();
+        data = grayscaleWatermark->GetImageData();
+        newData = sobelWatermark->GetImageData();
+        imageSize = glm::ivec2(grayscaleWatermark->GetWidth(), grayscaleWatermark->GetHeight());
+    }
+    else {
+        channels = grayscaleImage->GetNrChannels();
+        data = grayscaleImage->GetImageData();
+        newData = sobelImage->GetImageData();
+        imageSize = glm::ivec2(grayscaleImage->GetWidth(), grayscaleImage->GetHeight());
+    }
 
     if (channels < 3)
         return;
-
-    glm::ivec2 imageSize = glm::ivec2(grayscaleImage->GetWidth(), grayscaleImage->GetHeight());
 
     for (i = 0; i < imageSize.y; ++i)
     {
@@ -172,7 +224,27 @@ void Watermark::Sobel()
         }
     }
 
-    sobelImage->UploadNewData(newData);
+    if (onWatermark) {
+        sobelWatermark->UploadNewData(newData);
+    }
+    else {
+        sobelImage->UploadNewData(newData);
+    }
+}
+
+
+void Watermark::OnFileSelected(const std::string& fileName)
+{
+    if (fileName.size())
+    {
+        std::cout << fileName << endl;
+        originalImage = TextureManager::LoadTexture(fileName, nullptr, "image", true, true);
+        grayscaleImage = TextureManager::LoadTexture(fileName, nullptr, "grayscaleImage", true, true);
+        sobelImage = TextureManager::LoadTexture(fileName, nullptr, "sobelImage", true, true);
+
+        float aspectRatio = static_cast<float>(originalImage->GetWidth()) / originalImage->GetHeight();
+        window->SetSize(static_cast<int>(600 * aspectRatio), 600);
+    }
 }
 
 
@@ -204,6 +276,26 @@ void Watermark::OpenDialog()
 void Watermark::OnKeyPress(int key, int mods)
 {
     // Add key press event
+    if (key == GLFW_KEY_S)
+    {
+        ApplySobelOnLoadedImage();
+        showImageMode = 3;
+    }
+
+    if (key == GLFW_KEY_W)
+    {
+        showWatermark = !showWatermark;
+
+        if (showWatermark) {
+            float aspectRatio = static_cast<float>(originalWatermark->GetWidth()) / originalWatermark->GetHeight();
+            window->SetSize(static_cast<int>(600 * aspectRatio), 600);
+        }
+        else {
+            float aspectRatio = static_cast<float>(originalImage->GetWidth()) / originalImage->GetHeight();
+            window->SetSize(static_cast<int>(600 * aspectRatio), 600);
+        }
+    }
+
     if (key == GLFW_KEY_F || key == GLFW_KEY_ENTER || key == GLFW_KEY_SPACE)
     {
         OpenDialog();
@@ -211,9 +303,17 @@ void Watermark::OnKeyPress(int key, int mods)
 
     if (key == GLFW_KEY_1)
     {
-        GrayScale();
-        Sobel();
-        showSobel = true;
+        showImageMode = 1;
+    }
+
+    if (key == GLFW_KEY_2)
+    {
+        showImageMode = 2;
+    }
+
+    if (key == GLFW_KEY_3)
+    {
+        showImageMode = 3;
     }
 
     if (key == GLFW_KEY_S && mods & GLFW_MOD_CONTROL)
