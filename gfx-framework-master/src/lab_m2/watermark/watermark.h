@@ -41,7 +41,7 @@ namespace m2
 
      private:
         unsigned char sobelThreshold = 25;
-        double watermarkMinimumOverlapThreshold = 1;
+        double watermarkMinimumOverlapThreshold = 0.55;
         int watermarkMinimumWhiteAmount = 0;
         bool showWatermark = false;
         int showImageMode = 1; // 1 = original, 2 = grayscale, 3 = sobel

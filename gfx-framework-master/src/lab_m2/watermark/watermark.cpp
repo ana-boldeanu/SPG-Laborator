@@ -145,11 +145,13 @@ void Watermark::FindWatermarks()
 {
     unsigned char* imageData = sobelImage->GetImageData();
     unsigned char* watermarkData = sobelWatermark->GetImageData();
-    glm::ivec2 imageSize = glm::ivec2(sobelImage->GetWidth(), sobelImage->GetHeight());
-    glm::ivec2 watermarkSize = glm::ivec2(sobelWatermark->GetWidth(), sobelWatermark->GetHeight());
+    unsigned int imageChannels = originalImage->GetNrChannels();
+    unsigned int watermarkChannels = originalWatermark->GetNrChannels();
+    glm::ivec2 imageSize = glm::ivec2(originalImage->GetWidth(), originalImage->GetHeight());
+    glm::ivec2 watermarkSize = glm::ivec2(originalWatermark->GetWidth(), originalWatermark->GetHeight());
     int minimumMatches = watermarkMinimumWhiteAmount;
     int pixelMatches = 0;
-    int y, x, m, n;
+    int y, x, m, n, imageOffset, watermarkOffset;
 
     std::cout << "imageSize = [x = " << imageSize.x << ", y = " << imageSize.y << "]\n";
     std::cout << "watermarkSize = [x = " << watermarkSize.x << ", y = " << watermarkSize.y << "]\n";
@@ -158,6 +160,8 @@ void Watermark::FindWatermarks()
     std::cout << "Started search.\n";
 
     // use offset + channels, cuz maybe watermark is differently mapped
+    if (imageChannels < 3 || watermarkChannels < 3)
+        return;
 
     for (y = 0; y < imageSize.y; ++y)
     {
@@ -167,21 +171,26 @@ void Watermark::FindWatermarks()
             {
                 for (n = 0; n < watermarkSize.x; ++n)
                 {
-                    if (imageData[y * imageSize.x + x] == 255 && watermarkData[m * watermarkSize.x + n] == 255) {
+                    imageOffset = imageChannels * (y * imageSize.x + x);
+                    watermarkOffset = watermarkChannels * (m * watermarkSize.x + n);
+
+                    if (imageData[imageOffset] == 255 && watermarkData[watermarkOffset] == 255) {
                         ++pixelMatches;
                     }
                 }
             }
+
+            // std::cout << pixelMatches << "\n"; // always 4997
 
             if (pixelMatches >= minimumMatches) {
                 std::cout << "Found match at [x = " << x << " y = " << y << "]\n";
 
                 // Go to the next row
                 x += watermarkSize.x;
-                y += watermarkSize.y;
 
                 if (x >= imageSize.x) {
                     x = 0;
+                    y += watermarkSize.y;
                 }
 
                 if (y >= imageSize.y)
