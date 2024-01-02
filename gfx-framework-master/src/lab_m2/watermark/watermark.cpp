@@ -59,6 +59,8 @@ void Watermark::Init()
 
     // Process watermark image
     ApplySobelOnWatermark();
+    int whiteAmount = ProcessWatermarkWhiteAmount();
+    watermarkMinimumWhiteAmount = static_cast<int>(floor(whiteAmount * watermarkMinimumOverlapThreshold));
 }
 
 
@@ -116,6 +118,84 @@ void Watermark::ApplySobelOnLoadedImage()
 {
     GrayScale();
     Sobel();
+}
+
+int Watermark::ProcessWatermarkWhiteAmount()
+{
+    unsigned char* watermarkData = sobelWatermark->GetImageData();
+    glm::ivec2 watermarkSize = glm::ivec2(sobelWatermark->GetWidth(), sobelWatermark->GetHeight());
+    int whiteAmount = 0;
+
+    for (int i = 0; i < watermarkSize.y; ++i)
+    {
+        for (int j = 0; j < watermarkSize.x; ++j)
+        {
+            if (watermarkData[i * watermarkSize.x + j] == 255)
+                whiteAmount++;
+        }
+    }
+
+    std::cout << "whiteAmount = " << whiteAmount << "\n";
+
+    return whiteAmount;
+}
+
+
+void Watermark::FindWatermarks()
+{
+    unsigned char* imageData = sobelImage->GetImageData();
+    unsigned char* watermarkData = sobelWatermark->GetImageData();
+    glm::ivec2 imageSize = glm::ivec2(sobelImage->GetWidth(), sobelImage->GetHeight());
+    glm::ivec2 watermarkSize = glm::ivec2(sobelWatermark->GetWidth(), sobelWatermark->GetHeight());
+    int minimumMatches = watermarkMinimumWhiteAmount;
+    int pixelMatches = 0;
+    int y, x, m, n;
+
+    std::cout << "imageSize = [x = " << imageSize.x << ", y = " << imageSize.y << "]\n";
+    std::cout << "watermarkSize = [x = " << watermarkSize.x << ", y = " << watermarkSize.y << "]\n";
+    std::cout << "maximumMatches = " << watermarkSize.x * watermarkSize.y << "\n";
+    std::cout << "minimumMatches = " << minimumMatches << "\n";
+    std::cout << "Started search.\n";
+
+    // use offset + channels, cuz maybe watermark is differently mapped
+
+    for (y = 0; y < imageSize.y; ++y)
+    {
+        for (x = 0; x < imageSize.x; ++x)
+        {
+            for (m = 0; m < watermarkSize.y; ++m)
+            {
+                for (n = 0; n < watermarkSize.x; ++n)
+                {
+                    if (imageData[y * imageSize.x + x] == 255 && watermarkData[m * watermarkSize.x + n] == 255) {
+                        ++pixelMatches;
+                    }
+                }
+            }
+
+            if (pixelMatches >= minimumMatches) {
+                std::cout << "Found match at [x = " << x << " y = " << y << "]\n";
+
+                // Go to the next row
+                x += watermarkSize.x;
+                y += watermarkSize.y;
+
+                if (x >= imageSize.x) {
+                    x = 0;
+                }
+
+                if (y >= imageSize.y)
+                {
+                    std::cout << "Finished search.\n";
+                    return;
+                }
+            }
+
+            pixelMatches = 0;
+        }
+    }
+
+    std::cout << "Finished search.\n";
 }
 
 
@@ -280,6 +360,7 @@ void Watermark::OnKeyPress(int key, int mods)
     {
         ApplySobelOnLoadedImage();
         showImageMode = 3;
+        FindWatermarks();
     }
 
     if (key == GLFW_KEY_W)
