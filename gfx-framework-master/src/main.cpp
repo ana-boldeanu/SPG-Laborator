@@ -44,7 +44,7 @@ int main(int argc, char **argv)
     (void)Engine::Init(wp);
 
     // Create a new 3D world and start running it
-    World *world = new m2::Watermark();
+    World *world = new m2::Watermark_OpenMP();
 
     world->Init();
     world->Run();

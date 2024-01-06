@@ -10,4 +10,5 @@
 #include "lab_m2/lab8/lab8.h"
 #include "lab_m2/ar-mirror/ar-mirror.h"
 #include "lab_m2/watermark/watermark.h"
+#include "lab_m2/watermark/watermark_openMP.h"
 
