@@ -2,14 +2,12 @@
 
 #include <vector>
 #include <iostream>
-#include <omp.h>
 
 #include "pfd/portable-file-dialogs.h"
 
 using namespace std;
 using namespace m2;
 
-#define THREAD_NUM 4
 
 /*
  *  To find out more about `FrameStart`, `Update`, `FrameEnd`
@@ -20,7 +18,6 @@ using namespace m2;
 Watermark::Watermark()
 {
     window->SetSize(600, 600);
-    omp_set_num_threads(THREAD_NUM);
 }
 
 
@@ -160,6 +157,7 @@ void Watermark::FindWatermarks()
     glm::ivec2 watermarkSize = glm::ivec2(originalWatermark->GetWidth(), originalWatermark->GetHeight());
     int pixelMatches = 0;
     int y, x, m, n, imageOffset, watermarkOffset;
+    bool ignoreArea = false;
 
     std::cout << "imageSize = [x = " << imageSize.x << ", y = " << imageSize.y << "]\n";
     std::cout << "watermarkSize = [x = " << watermarkSize.x << ", y = " << watermarkSize.y << "]\n";
@@ -170,13 +168,32 @@ void Watermark::FindWatermarks()
     if (imageChannels < 3 || watermarkChannels < 3)
         return;
 
-    int chunk_size = static_cast<int>(floor((imageSize.y - watermarkSize.y) / THREAD_NUM));
-
- #pragma omp parallel for schedule(static, chunk_size) private(x, m, n, imageOffset, watermarkOffset, pixelMatches) shared(imageData, watermarkData)
     for (y = 0; y < imageSize.y - watermarkSize.y; ++y)
-    {
+    {        
         for (x = 0; x < imageSize.x - watermarkSize.x; ++x)
         {
+            for (glm::vec2 areaToIgnore : areasToIgnore) 
+            {
+                if (x == areaToIgnore.x && y >= areaToIgnore.y && y < areaToIgnore.y + watermarkSize.y)
+                {
+                    y += watermarkSize.y;
+
+                    if (y > imageSize.y - watermarkSize.y)
+                    {
+                        std::cout << "Finished search.\n\n";
+                        return;
+                    }
+
+                    ignoreArea = true;
+                }
+            }
+
+            if (ignoreArea)
+            {
+                ignoreArea = false;
+                continue;
+            }
+            
             for (m = 0; m < watermarkSize.y; ++m)
             {
                 for (n = 0; n < watermarkSize.x; ++n)
@@ -191,13 +208,16 @@ void Watermark::FindWatermarks()
             }
 
             if (pixelMatches <= minimumMatchesOtherwiseSkipImageArea) {
+                std::cout << "Ignoring area at [x = " << x << " y = " << y << "]\n";
+                areasToIgnore.push_back(glm::vec2(x, y));
+
+                // Jump over the ignored area
                 x += watermarkSize.x;
             }
 
             if (pixelMatches >= watermarkMinimumWhiteAmount) {
-#pragma omp critical
                 matches.push_back(glm::vec2(x, y));
-                // std::cout << "Found match at [x = " << x << " y = " << y << "]\n";
+                std::cout << "Found match at [x = " << x << " y = " << y << "]\n";
 
                 // Jump over this watermark
                 x += watermarkSize.x;
