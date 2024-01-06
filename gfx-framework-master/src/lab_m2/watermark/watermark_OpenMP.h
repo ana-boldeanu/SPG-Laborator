@@ -28,7 +28,7 @@ namespace m2
 
         // Processing effects
         inline char CharToGrayScale(char red, char green, char blue) { return static_cast<char>(red * 0.2f + green * 0.71f + blue * 0.07); }
-        void GrayScale(bool onWatermark = false);
+        void GrayScaleAndBlur(bool onWatermark = false);
         void Sobel(bool onWatermark = false);
 
         void ApplySobelOnWatermark();
@@ -41,8 +41,8 @@ namespace m2
         void SaveImage(const std::string &fileName);
 
      private:
-        double watermarkMinimumOverlapThreshold = 0.5;
-        double minimumThresholdOtherwiseSkipImageArea = 0.095;
+        double watermarkMinimumOverlapThreshold = 0.65;
+        double minimumThresholdOtherwiseSkipImageArea = 0.15;
         int watermarkMinimumWhiteAmount = 0;
         int minimumMatchesOtherwiseSkipImageArea = 0;
         int showImageMode = 1; // 1 = original, 2 = grayscale, 3 = sobel

@@ -84,7 +84,8 @@ void Watermark_OpenMP::Update(float deltaTimeSeconds)
     glUniform1i(shader->GetUniformLocation("textureImage"), 0);
 
     Texture2D* textureImage;
-    switch (showImageMode) {
+    switch (showImageMode)
+    {
     case 2:
         textureImage = grayscaleImage;
         break;;
@@ -99,9 +100,8 @@ void Watermark_OpenMP::Update(float deltaTimeSeconds)
         textureImage = originalImage;
     }
 
-    if (showWatermark) {
+    if (showWatermark)
         textureImage = sobelWatermark;
-    }
 
     textureImage->BindToTextureUnit(GL_TEXTURE0);
 
@@ -117,14 +117,14 @@ void Watermark_OpenMP::FrameEnd()
 
 void Watermark_OpenMP::ApplySobelOnWatermark()
 {
-    GrayScale(true);
+    GrayScaleAndBlur(true);
     Sobel(true);
 }
 
 
 void Watermark_OpenMP::ApplySobelOnLoadedImage()
 {
-    GrayScale();
+    GrayScaleAndBlur();
     Sobel();
     std::cout << "Finished Sobel.\n\n";
 }
@@ -187,17 +187,16 @@ void Watermark_OpenMP::FindWatermarks()
                     imageOffset = imageChannels * ((y + m) * imageSize.x + (x + n));
                     watermarkOffset = watermarkChannels * (m * watermarkSize.x + n);
 
-                    if (imageData[imageOffset] == 255 && watermarkData[watermarkOffset] == 255) {
+                    if (imageData[imageOffset] == 255 && watermarkData[watermarkOffset] == 255)
                         ++pixelMatches;
-                    }
                 }
             }
 
-            if (pixelMatches <= minimumMatchesOtherwiseSkipImageArea) {
-                x += watermarkSize.x;
-            }
+            if (pixelMatches <= minimumMatchesOtherwiseSkipImageArea)
+                x += watermarkSize.x / 2;
 
-            if (pixelMatches >= watermarkMinimumWhiteAmount) {
+            if (pixelMatches >= watermarkMinimumWhiteAmount)
+            {
 #pragma omp critical
                 {
                     matches.push_back(glm::vec2(x, y));
@@ -247,9 +246,9 @@ void Watermark_OpenMP::RemoveWatermarks()
                 watermarkOffset = watermarkChannels * (y * watermarkSize.x + x);
 
                 // Pixels overlap so remove the watermark from the original image at this position for all channels
-                for (int rgb = 0; rgb < 3; rgb++) {
+                for (int rgb = 0; rgb < 3; rgb++)
                     finalImageData[imageOffset + rgb] = originalImageData[imageOffset + rgb] - originalWatermarkData[watermarkOffset + rgb];
-                }
+
                 numRemoved++;
             }
         }
@@ -261,19 +260,23 @@ void Watermark_OpenMP::RemoveWatermarks()
 }
 
 
-void Watermark_OpenMP::GrayScale(bool onWatermark)
+void Watermark_OpenMP::GrayScaleAndBlur(bool onWatermark)
 {
     unsigned int channels;
     unsigned char *data, *grayscaleData;
     glm::ivec2 imageSize;
+    int grayValue = 0;
+    int i, j, m, n, numNeighbours, offset;
 
-    if (onWatermark) {
+    if (onWatermark) 
+    {
         channels = originalWatermark->GetNrChannels();
         data = originalWatermark->GetImageData();
         grayscaleData = grayscaleWatermark->GetImageData();
         imageSize = glm::ivec2(originalWatermark->GetWidth(), originalWatermark->GetHeight());
     }
-    else {
+    else
+    {
         channels = originalImage->GetNrChannels();
         data = originalImage->GetImageData();
         grayscaleData = grayscaleImage->GetImageData();
@@ -283,12 +286,12 @@ void Watermark_OpenMP::GrayScale(bool onWatermark)
     if (channels < 3)
         return;
 
-
-    for (int i = 0; i < imageSize.y; ++i)
+    // Grayscale
+    for (i = 0; i < imageSize.y; ++i)
     {
-        for (int j = 0; j < imageSize.x; ++j)
+        for (j = 0; j < imageSize.x; ++j)
         {
-            int offset = channels * (i * imageSize.x + j);
+            offset = channels * (i * imageSize.x + j);
 
             // Reset save image data
             char value = CharToGrayScale(data[offset + 0], data[offset + 1], data[offset + 2]);
@@ -296,12 +299,39 @@ void Watermark_OpenMP::GrayScale(bool onWatermark)
         }
     }
 
-    if (onWatermark) {
+    // Blur
+    for (i = 0; i < imageSize.y; ++i)
+    {
+        for (j = 0; j < imageSize.x; ++j)
+        {
+            offset = channels * (i * imageSize.x + j);
+            grayValue = 0;
+
+            // Compute average gray value from pixel neighbours
+            numNeighbours = 0;
+            for (m = i - 1; m <= i + 1; ++m)
+            {
+                for (n = j - 1; n <= j + 1; ++n)
+                {
+                    // Ignore pixels outside image bounds
+                    if (m == -1 || n == -1 || m == imageSize.y || n == imageSize.x)
+                        continue;
+                    else
+                        grayValue += data[channels * (m * imageSize.x + n)];
+
+                    ++numNeighbours;
+                }
+            }
+
+            char averageGray = static_cast<unsigned char>(floor(grayValue / numNeighbours));
+            memset(&grayscaleData[offset], averageGray, 3);
+        }
+    }
+
+    if (onWatermark)
         grayscaleWatermark->UploadNewData(grayscaleData);
-    }
-    else {
+    else
         grayscaleImage->UploadNewData(grayscaleData);
-    }
 }
 
 
@@ -321,7 +351,8 @@ void Watermark_OpenMP::Sobel(bool onWatermark)
         newData = sobelWatermark->GetImageData();
         imageSize = glm::ivec2(grayscaleWatermark->GetWidth(), grayscaleWatermark->GetHeight());
     }
-    else {
+    else
+    {
         channels = grayscaleImage->GetNrChannels();
         data = grayscaleImage->GetImageData();
         newData = sobelImage->GetImageData();
@@ -366,12 +397,10 @@ void Watermark_OpenMP::Sobel(bool onWatermark)
         }
     }
 
-    if (onWatermark) {
+    if (onWatermark)
         sobelWatermark->UploadNewData(newData);
-    }
-    else {
+    else
         sobelImage->UploadNewData(newData);
-    }
 }
 
 
@@ -433,11 +462,13 @@ void Watermark_OpenMP::OnKeyPress(int key, int mods)
     {
         showWatermark = !showWatermark;
 
-        if (showWatermark) {
+        if (showWatermark)
+        {
             float aspectRatio = static_cast<float>(originalWatermark->GetWidth()) / originalWatermark->GetHeight();
             window->SetSize(static_cast<int>(600 * aspectRatio), 600);
         }
-        else {
+        else
+        {
             float aspectRatio = static_cast<float>(originalImage->GetWidth()) / originalImage->GetHeight();
             window->SetSize(static_cast<int>(600 * aspectRatio), 600);
         }
