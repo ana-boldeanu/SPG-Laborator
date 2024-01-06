@@ -62,7 +62,7 @@ void Watermark::Init()
     ApplySobelOnWatermark();
     int whiteAmount = ProcessWatermarkWhiteAmount();
     watermarkMinimumWhiteAmount = static_cast<int>(floor(whiteAmount * watermarkMinimumOverlapThreshold));
-    whiteAmountToSkipImageArea = static_cast<int>(floor(whiteAmount * minimumThresholdToSkipImageArea));
+    minimumMatchesOtherwiseSkipImageArea = static_cast<int>(floor(whiteAmount * minimumThresholdOtherwiseSkipImageArea));
 }
 
 
@@ -155,14 +155,13 @@ void Watermark::FindWatermarks()
     unsigned int watermarkChannels = originalWatermark->GetNrChannels();
     glm::ivec2 imageSize = glm::ivec2(originalImage->GetWidth(), originalImage->GetHeight());
     glm::ivec2 watermarkSize = glm::ivec2(originalWatermark->GetWidth(), originalWatermark->GetHeight());
-    int minimumMatches = watermarkMinimumWhiteAmount;
     int pixelMatches = 0;
     int y, x, m, n, imageOffset, watermarkOffset;
 
     std::cout << "imageSize = [x = " << imageSize.x << ", y = " << imageSize.y << "]\n";
     std::cout << "watermarkSize = [x = " << watermarkSize.x << ", y = " << watermarkSize.y << "]\n";
-    std::cout << "maximumMatches = " << watermarkSize.x * watermarkSize.y << "\n";
-    std::cout << "minimumMatches = " << minimumMatches << "\n";
+    std::cout << "pixelsNumber = " << watermarkSize.x * watermarkSize.y << "\n";
+    std::cout << "minimumMatchesToCountOverlap = " << watermarkMinimumWhiteAmount << "\n";
     std::cout << "Started search.\n";
 
     if (imageChannels < 3 || watermarkChannels < 3)
@@ -176,7 +175,7 @@ void Watermark::FindWatermarks()
             {
                 for (n = 0; n < watermarkSize.x; ++n)
                 {
-                    imageOffset = imageChannels * ((y  + m) * imageSize.x + (x + n));
+                    imageOffset = imageChannels * ((y + m) * imageSize.x + (x + n));
                     watermarkOffset = watermarkChannels * (m * watermarkSize.x + n);
 
                     if (imageData[imageOffset] == 255 && watermarkData[watermarkOffset] == 255) {
@@ -185,7 +184,11 @@ void Watermark::FindWatermarks()
                 }
             }
 
-            if (pixelMatches >= minimumMatches) {
+            if (pixelMatches <= minimumMatchesOtherwiseSkipImageArea) {
+                x += watermarkSize.x;
+            }
+
+            if (pixelMatches >= watermarkMinimumWhiteAmount) {
                 matches.push_back(glm::vec2(x, y));
                 std::cout << "Found match at [x = " << x << " y = " << y << "]\n";
 

@@ -41,10 +41,10 @@ namespace m2
         void SaveImage(const std::string &fileName);
 
      private:
-        double watermarkMinimumOverlapThreshold = 0.50;
-        double minimumThresholdToSkipImageArea = 0.10;
+        double watermarkMinimumOverlapThreshold = 0.5;
+        double minimumThresholdOtherwiseSkipImageArea = 0.095;
         int watermarkMinimumWhiteAmount = 0;
-        int whiteAmountToSkipImageArea = 0;
+        int minimumMatchesOtherwiseSkipImageArea = 0;
         int showImageMode = 1; // 1 = original, 2 = grayscale, 3 = sobel
         unsigned char sobelThreshold = 25;
         bool showWatermark = false;
