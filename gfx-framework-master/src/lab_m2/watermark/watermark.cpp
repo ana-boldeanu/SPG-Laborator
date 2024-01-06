@@ -31,11 +31,14 @@ void Watermark::Init()
     // Load default texture for imagine processing
     originalImage = TextureManager::LoadTexture(PATH_JOIN(window->props.selfDir, SOURCE_PATH::M2, "watermark", "test_images", "star.png"), nullptr, "image", true, true);
     grayscaleImage = TextureManager::LoadTexture(PATH_JOIN(window->props.selfDir, SOURCE_PATH::M2, "watermark", "test_images", "star.png"), nullptr, "grayscaleImage", true, true);
+    filteredColorImage = TextureManager::LoadTexture(PATH_JOIN(window->props.selfDir, SOURCE_PATH::M2, "watermark", "test_images", "star.png"), nullptr, "filteredColorImage", true, true);
     sobelImage = TextureManager::LoadTexture(PATH_JOIN(window->props.selfDir, SOURCE_PATH::M2, "watermark", "test_images", "star.png"), nullptr, "sobelImage", true, true);
+    finalImage = TextureManager::LoadTexture(PATH_JOIN(window->props.selfDir, SOURCE_PATH::M2, "watermark", "test_images", "star.png"), nullptr, "finalImage", true, true);
 
     // Load watermark image
     originalWatermark = TextureManager::LoadTexture(PATH_JOIN(window->props.selfDir, SOURCE_PATH::M2, "watermark", "test_images", "watermark.png"), nullptr, "watermark", true, true);
     grayscaleWatermark = TextureManager::LoadTexture(PATH_JOIN(window->props.selfDir, SOURCE_PATH::M2, "watermark", "test_images", "watermark.png"), nullptr, "grayscaleWatermark", true, true);
+    filteredColorWatermark = TextureManager::LoadTexture(PATH_JOIN(window->props.selfDir, SOURCE_PATH::M2, "watermark", "test_images", "watermark.png"), nullptr, "filteredColorWatermark", true, true);
     sobelWatermark = TextureManager::LoadTexture(PATH_JOIN(window->props.selfDir, SOURCE_PATH::M2, "watermark", "test_images", "watermark.png"), nullptr, "sobelWatermark", true, true);
 
     {
@@ -84,7 +87,13 @@ void Watermark::Update(float deltaTimeSeconds)
         textureImage = grayscaleImage;
         break;
     case 3:
+        textureImage = filteredColorImage;
+        break;
+    case 4:
         textureImage = sobelImage;
+        break;
+    case 5:
+        textureImage = finalImage;
         break;
     case 1:
     default:
@@ -159,19 +168,18 @@ void Watermark::FindWatermarks()
     std::cout << "minimumMatches = " << minimumMatches << "\n";
     std::cout << "Started search.\n";
 
-    // use offset + channels, cuz maybe watermark is differently mapped
     if (imageChannels < 3 || watermarkChannels < 3)
         return;
 
-    for (y = 0; y < imageSize.y; ++y)
+    for (y = 0; y < imageSize.y - watermarkSize.y; ++y)
     {
-        for (x = 0; x < imageSize.x; ++x)
+        for (x = 0; x < imageSize.x - watermarkSize.x; ++x)
         {
             for (m = 0; m < watermarkSize.y; ++m)
             {
                 for (n = 0; n < watermarkSize.x; ++n)
                 {
-                    imageOffset = imageChannels * (y * imageSize.x + x);
+                    imageOffset = imageChannels * ((y  + m) * imageSize.x + (x + n));
                     watermarkOffset = watermarkChannels * (m * watermarkSize.x + n);
 
                     if (imageData[imageOffset] == 255 && watermarkData[watermarkOffset] == 255) {
@@ -180,24 +188,12 @@ void Watermark::FindWatermarks()
                 }
             }
 
-            // std::cout << pixelMatches << "\n"; // always 4997
-
             if (pixelMatches >= minimumMatches) {
+                matches.push_back(glm::vec2(x, y));
                 std::cout << "Found match at [x = " << x << " y = " << y << "]\n";
 
-                // Go to the next row
+                // Jump over this watermark
                 x += watermarkSize.x;
-
-                if (x >= imageSize.x) {
-                    x = 0;
-                    y += watermarkSize.y;
-                }
-
-                if (y >= imageSize.y)
-                {
-                    std::cout << "Finished search.\n";
-                    return;
-                }
             }
 
             pixelMatches = 0;
@@ -208,22 +204,74 @@ void Watermark::FindWatermarks()
 }
 
 
+void Watermark::RemoveWatermarks()
+{
+    unsigned char* sobelImageData = filteredColorImage->GetImageData();
+    unsigned char* originalImageData = originalImage->GetImageData();
+    unsigned char* finalImageData = originalImage->GetImageData();
+    unsigned char* sobelWatermarkData = filteredColorWatermark->GetImageData();
+    unsigned char* originalWatermarkData = sobelWatermark->GetImageData();
+    unsigned int imageChannels = originalImage->GetNrChannels();
+    unsigned int watermarkChannels = originalWatermark->GetNrChannels();
+    glm::ivec2 imageSize = glm::ivec2(originalImage->GetWidth(), originalImage->GetHeight());
+    glm::ivec2 watermarkSize = glm::ivec2(originalWatermark->GetWidth(), originalWatermark->GetHeight());
+    int y, x, imageOffset, watermarkOffset;
+
+    if (imageChannels < 3 || watermarkChannels < 3)
+        return;
+
+    std::cout << "Started removal.\n";
+
+    for (glm::vec2 match : matches)
+    {
+        std::cout << "Solving match at [x = " << match.x << " y = " << match.y << "]\n";
+        
+        int numRemoved = 0;
+
+        for (y = 0; y < watermarkSize.y; ++y)
+        {
+            for (x = 0; x < watermarkSize.x; ++x)
+            {
+                imageOffset = imageChannels * static_cast<int>((y + match.y) * imageSize.x + (x + match.x));
+                watermarkOffset = watermarkChannels * (y * watermarkSize.x + x);
+
+                if (sobelImageData[imageOffset] == 255 && sobelWatermarkData[watermarkOffset] == 255) {
+                    // Pixels overlap so remove watermark from original image at this position for all channels
+                    finalImageData[imageOffset + 0] = 0;
+                    finalImageData[imageOffset + 1] = 0;
+                    finalImageData[imageOffset + 2] = 0;
+                    numRemoved++;
+                }
+            }
+        }
+
+        std::cout << "Removed " << numRemoved << " matches\n";
+    }
+
+    std::cout << "Ended removal.\n";
+
+    finalImage->UploadNewData(finalImageData);
+}
+
+
 void Watermark::GrayScale(bool onWatermark)
 {
     unsigned int channels;
-    unsigned char *data, *newData;
+    unsigned char *data, *grayscaleData, *filteredColorData;
     glm::ivec2 imageSize;
 
     if (onWatermark) {
         channels = originalWatermark->GetNrChannels();
         data = originalWatermark->GetImageData();
-        newData = grayscaleWatermark->GetImageData();
+        grayscaleData = grayscaleWatermark->GetImageData();
+        filteredColorData = filteredColorWatermark->GetImageData();
         imageSize = glm::ivec2(originalWatermark->GetWidth(), originalWatermark->GetHeight());
     }
     else {
         channels = originalImage->GetNrChannels();
         data = originalImage->GetImageData();
-        newData = grayscaleImage->GetImageData();
+        grayscaleData = grayscaleImage->GetImageData();
+        filteredColorData = filteredColorImage->GetImageData();
         imageSize = glm::ivec2(originalImage->GetWidth(), originalImage->GetHeight());
     }
 
@@ -239,15 +287,20 @@ void Watermark::GrayScale(bool onWatermark)
 
             // Reset save image data
             char value = CharToGrayScale(data[offset + 0], data[offset + 1], data[offset + 2]);
-            memset(&newData[offset], value, 3);
+            memset(&grayscaleData[offset], value, 3);
+
+            char filteredColor = value != 0 ? 255 : 0;
+            memset(&filteredColorData[offset], filteredColor, 3);
         }
     }
 
     if (onWatermark) {
-        grayscaleWatermark->UploadNewData(newData);
+        grayscaleWatermark->UploadNewData(grayscaleData);
+        filteredColorWatermark->UploadNewData(filteredColorData);
     }
     else {
-        grayscaleImage->UploadNewData(newData);
+        grayscaleImage->UploadNewData(grayscaleData);
+        filteredColorImage->UploadNewData(filteredColorData);
     }
 }
 
@@ -330,6 +383,7 @@ void Watermark::OnFileSelected(const std::string& fileName)
         originalImage = TextureManager::LoadTexture(fileName, nullptr, "image", true, true);
         grayscaleImage = TextureManager::LoadTexture(fileName, nullptr, "grayscaleImage", true, true);
         sobelImage = TextureManager::LoadTexture(fileName, nullptr, "sobelImage", true, true);
+        finalImage = TextureManager::LoadTexture(fileName, nullptr, "finalImage", true, true);
 
         float aspectRatio = static_cast<float>(originalImage->GetWidth()) / originalImage->GetHeight();
         window->SetSize(static_cast<int>(600 * aspectRatio), 600);
@@ -368,8 +422,9 @@ void Watermark::OnKeyPress(int key, int mods)
     if (key == GLFW_KEY_S)
     {
         ApplySobelOnLoadedImage();
-        showImageMode = 3;
+        showImageMode = 4;
         FindWatermarks();
+        RemoveWatermarks();
     }
 
     if (key == GLFW_KEY_W)
@@ -391,19 +446,9 @@ void Watermark::OnKeyPress(int key, int mods)
         OpenDialog();
     }
 
-    if (key == GLFW_KEY_1)
+    if (key - GLFW_KEY_0 >= 0 && key <= GLFW_KEY_9)
     {
-        showImageMode = 1;
-    }
-
-    if (key == GLFW_KEY_2)
-    {
-        showImageMode = 2;
-    }
-
-    if (key == GLFW_KEY_3)
-    {
-        showImageMode = 3;
+        showImageMode = key - GLFW_KEY_0;
     }
 
     if (key == GLFW_KEY_S && mods & GLFW_MOD_CONTROL)
