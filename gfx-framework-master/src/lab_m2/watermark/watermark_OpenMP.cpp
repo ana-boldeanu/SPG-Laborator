@@ -9,7 +9,7 @@
 using namespace std;
 using namespace m2;
 
-#define THREAD_NUM 4
+#define THREAD_NUM 8
 
 /*
  *  To find out more about `FrameStart`, `Update`, `FrameEnd`
@@ -158,7 +158,6 @@ void Watermark_OpenMP::FindWatermarks()
     unsigned int watermarkChannels = originalWatermark->GetNrChannels();
     glm::ivec2 imageSize = glm::ivec2(originalImage->GetWidth(), originalImage->GetHeight());
     glm::ivec2 watermarkSize = glm::ivec2(originalWatermark->GetWidth(), originalWatermark->GetHeight());
-    int pixelMatches = 0;
     int y, x, m, n, imageOffset, watermarkOffset;
 
     std::cout << "imageSize = [x = " << imageSize.x << ", y = " << imageSize.y << "]\n";
@@ -172,7 +171,11 @@ void Watermark_OpenMP::FindWatermarks()
 
     int chunk_size = static_cast<int>(floor((imageSize.y - watermarkSize.y) / THREAD_NUM));
 
- #pragma omp parallel for schedule(static, chunk_size) private(x, m, n, imageOffset, watermarkOffset, pixelMatches) shared(imageData, watermarkData)
+ #pragma omp parallel private(x, m, n, imageOffset, watermarkOffset) shared(imageData, watermarkData)
+{
+    int pixelMatches = 0;
+
+#pragma omp for schedule(static, chunk_size)
     for (y = 0; y < imageSize.y - watermarkSize.y; ++y)
     {
         for (x = 0; x < imageSize.x - watermarkSize.x; ++x)
@@ -196,7 +199,10 @@ void Watermark_OpenMP::FindWatermarks()
 
             if (pixelMatches >= watermarkMinimumWhiteAmount) {
 #pragma omp critical
-                matches.push_back(glm::vec2(x, y));
+                {
+                    matches.push_back(glm::vec2(x, y));
+                    std::cout << "Thread " << omp_get_thread_num() << " - Found match at[x = " << x << " y = " << y << "] by " << pixelMatches << " matches\n";
+                }
 
                 // Jump over this watermark
                 x += watermarkSize.x;
@@ -205,6 +211,7 @@ void Watermark_OpenMP::FindWatermarks()
             pixelMatches = 0;
         }
     }
+}
 
     std::cout << "Finished search.\n\n";
 }
