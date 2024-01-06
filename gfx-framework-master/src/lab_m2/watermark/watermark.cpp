@@ -2,14 +2,12 @@
 
 #include <vector>
 #include <iostream>
-#include <omp.h>
 
 #include "pfd/portable-file-dialogs.h"
 
 using namespace std;
 using namespace m2;
 
-#define THREAD_NUM 4
 
 /*
  *  To find out more about `FrameStart`, `Update`, `FrameEnd`
@@ -20,7 +18,6 @@ using namespace m2;
 Watermark::Watermark()
 {
     window->SetSize(600, 600);
-    omp_set_num_threads(THREAD_NUM);
 }
 
 
@@ -170,9 +167,6 @@ void Watermark::FindWatermarks()
     if (imageChannels < 3 || watermarkChannels < 3)
         return;
 
-    int chunk_size = static_cast<int>(floor((imageSize.y - watermarkSize.y) / THREAD_NUM));
-
- #pragma omp parallel for schedule(static, chunk_size) private(x, m, n, imageOffset, watermarkOffset, pixelMatches) shared(imageData, watermarkData)
     for (y = 0; y < imageSize.y - watermarkSize.y; ++y)
     {
         for (x = 0; x < imageSize.x - watermarkSize.x; ++x)
@@ -195,9 +189,8 @@ void Watermark::FindWatermarks()
             }
 
             if (pixelMatches >= watermarkMinimumWhiteAmount) {
-#pragma omp critical
                 matches.push_back(glm::vec2(x, y));
-                // std::cout << "Found match at [x = " << x << " y = " << y << "]\n";
+                std::cout << "Found match at [x = " << x << " y = " << y << "]\n";
 
                 // Jump over this watermark
                 x += watermarkSize.x;

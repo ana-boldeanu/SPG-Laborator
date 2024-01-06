@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.9)
+cmake_minimum_required(VERSION 3.16)
 
 
 # Set root directory, if needed
@@ -239,10 +239,6 @@ if (WITH_LAB_EXTRA)
 endif()
 target_compile_definitions(${target_name} PRIVATE ${GFXF_CXX_DEFS})
 
-find_package(OpenMP)
-if(OpenMP_CXX_FOUND)
-    target_link_libraries(${target_name} PUBLIC OpenMP::OpenMP_CXX)
-endif()
 
 # Add compile options (specific to this project)
 # Recommended reading: so@a/23995391/5922876
