@@ -42,17 +42,17 @@ namespace m2
 
      private:
         double watermarkMinimumOverlapThreshold = 0.50;
+        double minimumThresholdToSkipImageArea = 0.10;
         int watermarkMinimumWhiteAmount = 0;
+        int whiteAmountToSkipImageArea = 0;
         int showImageMode = 1; // 1 = original, 2 = grayscale, 3 = sobel
         unsigned char sobelThreshold = 25;
-        unsigned char filteredColorThreshold = 20;
         bool showWatermark = false;
 
         std::vector<glm::vec2> matches;
 
         Texture2D* originalImage;
         Texture2D* grayscaleImage;
-        Texture2D* filteredColorImage;
         Texture2D* sobelImage;
         Texture2D* finalImage;
 

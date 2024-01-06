@@ -31,14 +31,12 @@ void Watermark::Init()
     // Load default texture for imagine processing
     originalImage = TextureManager::LoadTexture(PATH_JOIN(window->props.selfDir, SOURCE_PATH::M2, "watermark", "test_images", "star.png"), nullptr, "image", true, true);
     grayscaleImage = TextureManager::LoadTexture(PATH_JOIN(window->props.selfDir, SOURCE_PATH::M2, "watermark", "test_images", "star.png"), nullptr, "grayscaleImage", true, true);
-    filteredColorImage = TextureManager::LoadTexture(PATH_JOIN(window->props.selfDir, SOURCE_PATH::M2, "watermark", "test_images", "star.png"), nullptr, "filteredColorImage", true, true);
     sobelImage = TextureManager::LoadTexture(PATH_JOIN(window->props.selfDir, SOURCE_PATH::M2, "watermark", "test_images", "star.png"), nullptr, "sobelImage", true, true);
     finalImage = TextureManager::LoadTexture(PATH_JOIN(window->props.selfDir, SOURCE_PATH::M2, "watermark", "test_images", "star.png"), nullptr, "finalImage", true, true);
 
     // Load watermark image
     originalWatermark = TextureManager::LoadTexture(PATH_JOIN(window->props.selfDir, SOURCE_PATH::M2, "watermark", "test_images", "watermark.png"), nullptr, "watermark", true, true);
     grayscaleWatermark = TextureManager::LoadTexture(PATH_JOIN(window->props.selfDir, SOURCE_PATH::M2, "watermark", "test_images", "watermark.png"), nullptr, "grayscaleWatermark", true, true);
-    filteredColorWatermark = TextureManager::LoadTexture(PATH_JOIN(window->props.selfDir, SOURCE_PATH::M2, "watermark", "test_images", "watermark.png"), nullptr, "filteredColorWatermark", true, true);
     sobelWatermark = TextureManager::LoadTexture(PATH_JOIN(window->props.selfDir, SOURCE_PATH::M2, "watermark", "test_images", "watermark.png"), nullptr, "sobelWatermark", true, true);
 
     {
@@ -64,6 +62,7 @@ void Watermark::Init()
     ApplySobelOnWatermark();
     int whiteAmount = ProcessWatermarkWhiteAmount();
     watermarkMinimumWhiteAmount = static_cast<int>(floor(whiteAmount * watermarkMinimumOverlapThreshold));
+    whiteAmountToSkipImageArea = static_cast<int>(floor(whiteAmount * minimumThresholdToSkipImageArea));
 }
 
 
@@ -85,14 +84,11 @@ void Watermark::Update(float deltaTimeSeconds)
     switch (showImageMode) {
     case 2:
         textureImage = grayscaleImage;
-        break;
+        break;;
     case 3:
-        textureImage = filteredColorImage;
-        break;
-    case 4:
         textureImage = sobelImage;
         break;
-    case 5:
+    case 4:
         textureImage = finalImage;
         break;
     case 1:
@@ -127,6 +123,7 @@ void Watermark::ApplySobelOnLoadedImage()
 {
     GrayScale();
     Sobel();
+    std::cout << "Finished Sobel.\n\n";
 }
 
 int Watermark::ProcessWatermarkWhiteAmount()
@@ -200,17 +197,15 @@ void Watermark::FindWatermarks()
         }
     }
 
-    std::cout << "Finished search.\n";
+    std::cout << "Finished search.\n\n";
 }
 
 
 void Watermark::RemoveWatermarks()
 {
-    unsigned char* sobelImageData = filteredColorImage->GetImageData();
     unsigned char* originalImageData = originalImage->GetImageData();
-    unsigned char* finalImageData = originalImage->GetImageData();
-    unsigned char* sobelWatermarkData = filteredColorWatermark->GetImageData();
-    unsigned char* originalWatermarkData = sobelWatermark->GetImageData();
+    unsigned char* finalImageData = finalImage->GetImageData();
+    unsigned char* originalWatermarkData = originalWatermark->GetImageData();
     unsigned int imageChannels = originalImage->GetNrChannels();
     unsigned int watermarkChannels = originalWatermark->GetNrChannels();
     glm::ivec2 imageSize = glm::ivec2(originalImage->GetWidth(), originalImage->GetHeight());
@@ -235,20 +230,16 @@ void Watermark::RemoveWatermarks()
                 imageOffset = imageChannels * static_cast<int>((y + match.y) * imageSize.x + (x + match.x));
                 watermarkOffset = watermarkChannels * (y * watermarkSize.x + x);
 
-                if (sobelImageData[imageOffset] == 255 && sobelWatermarkData[watermarkOffset] == 255) {
-                    // Pixels overlap so remove watermark from original image at this position for all channels
-                    finalImageData[imageOffset + 0] = 0;
-                    finalImageData[imageOffset + 1] = 0;
-                    finalImageData[imageOffset + 2] = 0;
-                    numRemoved++;
+                // Pixels overlap so remove the watermark from the original image at this position for all channels
+                for (int rgb = 0; rgb < 3; rgb++) {
+                    finalImageData[imageOffset + rgb] = originalImageData[imageOffset + rgb] - originalWatermarkData[watermarkOffset + rgb];
                 }
+                numRemoved++;
             }
         }
-
-        std::cout << "Removed " << numRemoved << " matches\n";
     }
 
-    std::cout << "Ended removal.\n";
+    std::cout << "Finished removal.\n\n";
 
     finalImage->UploadNewData(finalImageData);
 }
@@ -257,21 +248,19 @@ void Watermark::RemoveWatermarks()
 void Watermark::GrayScale(bool onWatermark)
 {
     unsigned int channels;
-    unsigned char *data, *grayscaleData, *filteredColorData;
+    unsigned char *data, *grayscaleData;
     glm::ivec2 imageSize;
 
     if (onWatermark) {
         channels = originalWatermark->GetNrChannels();
         data = originalWatermark->GetImageData();
         grayscaleData = grayscaleWatermark->GetImageData();
-        filteredColorData = filteredColorWatermark->GetImageData();
         imageSize = glm::ivec2(originalWatermark->GetWidth(), originalWatermark->GetHeight());
     }
     else {
         channels = originalImage->GetNrChannels();
         data = originalImage->GetImageData();
         grayscaleData = grayscaleImage->GetImageData();
-        filteredColorData = filteredColorImage->GetImageData();
         imageSize = glm::ivec2(originalImage->GetWidth(), originalImage->GetHeight());
     }
 
@@ -288,19 +277,14 @@ void Watermark::GrayScale(bool onWatermark)
             // Reset save image data
             char value = CharToGrayScale(data[offset + 0], data[offset + 1], data[offset + 2]);
             memset(&grayscaleData[offset], value, 3);
-
-            char filteredColor = value != 0 ? 255 : 0;
-            memset(&filteredColorData[offset], filteredColor, 3);
         }
     }
 
     if (onWatermark) {
         grayscaleWatermark->UploadNewData(grayscaleData);
-        filteredColorWatermark->UploadNewData(filteredColorData);
     }
     else {
         grayscaleImage->UploadNewData(grayscaleData);
-        filteredColorImage->UploadNewData(filteredColorData);
     }
 }
 
@@ -387,6 +371,8 @@ void Watermark::OnFileSelected(const std::string& fileName)
 
         float aspectRatio = static_cast<float>(originalImage->GetWidth()) / originalImage->GetHeight();
         window->SetSize(static_cast<int>(600 * aspectRatio), 600);
+
+        matches.clear();
     }
 }
 
