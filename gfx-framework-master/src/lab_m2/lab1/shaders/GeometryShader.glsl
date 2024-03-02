@@ -40,9 +40,10 @@ void main()
     // Ia centrul triunghiului si vectorul de mediana pt fiecare varf
     if (shrink <= 1) 
     {
-        p1 *= (1 - shrink);
-        p2 *= (1 - shrink);
-        p3 *= (1 - shrink);
+        vec3 center = (p1 + p2 + p3) / 3;
+        p1 -= normalize(p1 - center) * shrink;
+        p2 -= normalize(p2 - center) * shrink;
+        p3 -= normalize(p3 - center) * shrink;
     }
     
 
